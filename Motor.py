@@ -1,6 +1,5 @@
 #MOTOR
 
-import atexit
 from Adafruit_Motor_HAT_Python_Library.Adafruit_MotorHAT.Adafruit_MotorHAT_Motors import Adafruit_MotorHAT, Adafruit_StepperMotor
 
 
@@ -11,5 +10,4 @@ class Motor:
 
     def turnOffMotors(self):
         self.mh.getMotor(1).run(Adafruit_MotorHAT.RELEASE)
-	
-        atexit.register(turnOffMotors)
+        print('turn off')
