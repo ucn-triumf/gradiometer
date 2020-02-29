@@ -10,7 +10,11 @@ class Gradiometer:
     def __init__(self):
         
         self.motor = Motor()
-        self.cart = Cart()
+        self.cart = Cart(self.motor)
 
-gradiometer = Gradiometer()
-atexit.register(gradiometer.motor.turnOffMotors)
+def main():
+    gradiometer = Gradiometer()
+    atexit.register(gradiometer.motor.turnOffMotors)
+
+if __name__ == '__main__':
+    main()
