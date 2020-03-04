@@ -10,4 +10,4 @@ class Motor:
 
     def turnOffMotors(self):
         self.mh.getMotor(1).run(Adafruit_MotorHAT.RELEASE)
-        print('turn off')
+        print('turned off')
