@@ -9,7 +9,7 @@ from Motor import Motor
 
 class Gradiometer:
 
-    CM_PER_STEP = 0.1
+    CM_PER_STEP = 0.0825
 
     def __init__(self):
         
@@ -22,17 +22,18 @@ class Gradiometer:
         if dis>0:
             print('starting at', self.pos)
             print('taking',steps,'steps')
-            self.motor.myStepper.step(steps, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
+            self.motor.myStepper.step(steps, self.motor.mh.BACKWARD, self.motor.mh.DOUBLE)
             self.setPos(self.pos+(self.CM_PER_STEP*steps))
             print('at position',self.pos)
         elif dis<0:
             print('starting at', self.pos)
             print('taking',steps,'steps')
-            self.motor.myStepper.step(steps, self.motor.mh.BACKWARD, self.motor.mh.DOUBLE)
+            self.motor.myStepper.step(steps, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
             self.setPos(self.pos-(self.CM_PER_STEP*steps))
             print('at position',self.pos)
         else:
             print('already at position')
+        self.motor.turnOffMotors()
     
     def loadPos(self):
         posFile = open('POSITION.pickle','rb')
@@ -61,14 +62,13 @@ class Gradiometer:
         return self.pos
 
     def calibration(self):
-        self.motor.myStepper.step(200, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
+        self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
 
 def main():
     gradiometer = Gradiometer()
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
 
-    gradiometer.goTo(0)
     gradiometer.calibration()
 
 if __name__ == '__main__':
