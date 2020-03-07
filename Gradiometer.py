@@ -81,7 +81,7 @@ class Gradiometer:
         self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
     
     def run(self,start,stop,tag):
-        filename = 'Run Data/{}-{}.csv'.format(datetime.now(),tag)
+        filename = 'Run_Data/{}-{}.csv'.format(datetime.now(),tag)
         csvfile = open(filename, 'w')
         fieldnames = ['time','position','x1','y1','z1','x2','y2','z2']
         writer = csv.DictWriter(csvfile,fieldnames)
