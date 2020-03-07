@@ -99,11 +99,11 @@ class Gradiometer:
             direction = self.motor.mh.FORWARD
         
         for step in range(steps):
-            print('measuring at {}cm'.format(self.pos))
             time = datetime.now()
             position = self.pos
             [x1,y1,z1] = self.fg1.sample()
             [x2,y2,z2] = self.fg2.sample()
+            print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
             writer.writerow({'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
             self.oneStep(direction)
         csvfile.close()
