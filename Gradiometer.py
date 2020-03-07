@@ -4,7 +4,11 @@ import atexit
 import pickle
 import numpy as np
 import math
-from LabJackPython.src import u6
+
+try:
+    from LabJackPython.src import u6
+except ImportError:
+    import u6
 
 from Motor import Motor
 from Fluxgate import Fluxgate
