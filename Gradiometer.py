@@ -30,20 +30,17 @@ class Gradiometer:
     def goTo(self,cm):
         dis = cm-self.pos
         steps = math.floor(abs(dis/self.CM_PER_STEP))
+        print('goTo: starting at', self.pos)
+        print('goTo: will take',steps,'steps')
         if dis>0:
-            print('starting at', self.pos)
-            print('taking',steps,'steps')
             self.motor.myStepper.step(steps, self.motor.mh.BACKWARD, self.motor.mh.DOUBLE)
             self.setPos(self.pos+(self.CM_PER_STEP*steps))
-            print('at position',self.pos)
         elif dis<0:
-            print('starting at', self.pos)
-            print('taking',steps,'steps')
             self.motor.myStepper.step(steps, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
             self.setPos(self.pos-(self.CM_PER_STEP*steps))
-            print('at position',self.pos)
         else:
             print('already at position')
+        print('goTo: finished at position',self.pos)
         self.motor.turnOffMotors()
     
     def oneStep(self, direction):
@@ -86,7 +83,7 @@ class Gradiometer:
     def run(self,start,stop,tag):
         filename = 'Run Data/{}-{}.csv'.format(datetime.now(),tag)
         csvfile = open(filename, 'w')
-        fieldnames = ['time','position','x1','y2','z3','x2','y2','z2']
+        fieldnames = ['time','position','x1','y1','z1','x2','y2','z2']
         writer = csv.DictWriter(csvfile,fieldnames)
         writer.writeheader()
 
@@ -111,11 +108,14 @@ class Gradiometer:
             self.oneStep(direction)
         csvfile.close()
         print('finished at {}cm'.format(self.pos))
+        self.motor.turnOffMotors()
 
 def main():
     gradiometer = Gradiometer()
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
+
+    gradiometer.run(0,10,'runtest')
 
 if __name__ == '__main__':
     main()
