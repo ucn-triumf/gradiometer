@@ -4,8 +4,10 @@ import atexit
 import pickle
 import numpy as np
 import math
+from LabJackPython.src import u6
 
 from Motor import Motor
+from Fluxgate import Fluxgate
 
 class Gradiometer:
 
@@ -15,6 +17,9 @@ class Gradiometer:
         
         self.motor = Motor()
         self.pos = self.loadPos()
+        self.labjack = u6.U6()
+        self.fg1 = Fluxgate(self.labjack,1)
+        self.fg2 = Fluxgate(self.labjack,2)
 
     def goTo(self,cm):
         dis = cm-self.pos
@@ -63,13 +68,11 @@ class Gradiometer:
 
     def calibration(self):
         self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
-
+        
 def main():
     gradiometer = Gradiometer()
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
-
-    gradiometer.calibration()
 
 if __name__ == '__main__':
     main()
