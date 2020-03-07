@@ -3,12 +3,7 @@
 try:
     from Adafruit_Motor_HAT_Python_Library.Adafruit_MotorHAT.Adafruit_MotorHAT_Motors import Adafruit_MotorHAT, Adafruit_StepperMotor
 except ImportError:
-    print('first import failed')
-
-try:
     from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_StepperMotor
-except ImportError:
-    print('second import failed')
 
 class Motor:
     def __init__(self):
