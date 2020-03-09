@@ -5,6 +5,7 @@ import traceback
 import atexit
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 import csv
 from datetime import datetime
@@ -112,6 +113,26 @@ class Gradiometer:
         print('finished at {}cm'.format(self.pos))
         self.motor.turnOffMotors()
 
+        results = np.loadtxt(filename, delimiter=',', skiprows=1)
+        fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
+        y1pos = results[:,1]
+        z1pos = ypos-1.5
+        x1pos = ypos-1.5
+        x1 = results[:,2]
+        y1 = results[:,3]
+        z1 = results[:,4]
+        x2 = results[:,5]
+        y2 = results[:,6]
+        z2 = results[:,7]
+        ax1.plot(x1pos,x1)
+        ax1.plot(y1pos,y1)
+        ax1.plot(z1pos,z1)
+        ax2.plot(x1pos,x2)
+        ax2.plot(y1pos,y2)
+        ax2.plot(z1pos,z2)
+
+        plt.show()
+
     def timeRun(self,cm,sec,tag):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
@@ -196,8 +217,6 @@ def main():
     gradiometer = Gradiometer()
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
-
-    gradiometer.posRun(0,10,'runtest')
 
 if __name__ == '__main__':
     main()
