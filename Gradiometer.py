@@ -100,38 +100,24 @@ class Gradiometer:
             direction = self.motor.mh.BACKWARD
         else:
             direction = self.motor.mh.FORWARD
-        
-        for step in range(steps):
-            time = datetime.now()
-            position = self.pos
-            [x1,y1,z1] = self.fg1.sample()
-            [x2,y2,z2] = self.fg2.sample()
-            print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
-            writer.writerow({'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
-            self.oneStep(direction)
-        csvfile.close()
-        print('finished at {}cm'.format(self.pos))
-        self.motor.turnOffMotors()
+        try:
+            for step in range(steps):
+                time = datetime.now()
+                position = self.pos
+                [x1,y1,z1] = self.fg1.sample()
+                [x2,y2,z2] = self.fg2.sample()
+                print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
+                writer.writerow({'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
+                self.oneStep(direction)
+            print('finished at {}cm'.format(self.pos))
+        except KeyboardInterrupt:
+            print('run stopped at {}cm'.format(self.pos))
+        finally:
+            csvfile.close()
+            self.motor.turnOffMotors()
+            self.savePos()
 
-        results = np.genfromtxt(filename, delimiter=',', skip_header=1)
-        fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
-        y1pos = results[:,1]
-        z1pos = y1pos-1.5
-        x1pos = y1pos-1.5
-        x1 = results[:,2]
-        y1 = results[:,3]
-        z1 = results[:,4]
-        x2 = results[:,5]
-        y2 = results[:,6]
-        z2 = results[:,7]
-        ax1.plot(x1pos,x1)
-        ax1.plot(y1pos,y1)
-        ax1.plot(z1pos,z1)
-        ax2.plot(x1pos,x2)
-        ax2.plot(y1pos,y2)
-        ax2.plot(z1pos,z2)
-
-        plt.show()
+        self.plotter(filename,1)
 
     def timeRun(self,cm,sec,tag):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
@@ -211,6 +197,25 @@ class Gradiometer:
             print("{} samples were lost due to errors.".format(missed))
             scanTotal -= missed
             print ("Adjusted total: {}".format(scanTotal))
+    
+    def plotter(self,csvfile,mode):
+        results = np.genfromtxt(csvfile, delimiter=',', skip_header=1)
+        print(results.dtype)
+        fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
+        time = results[:,0]
+        y1pos = results[:,1]
+        z1pos = y1pos-1.5
+        x1pos = y1pos-1.5
+        x1 = results[:,2]
+        y1 = results[:,3]
+        z1 = results[:,4]
+        x2 = results[:,5]
+        y2 = results[:,6]
+        z2 = results[:,7]
+        if mode==1:
+            ax1.plot(x1pos,x1,y1pos,y1,z1pos,z1)
+            ax2.plot(x1pos,x2,y1pos,y2,z1pos,z2)
+            plt.show()
 
 
 def main():
