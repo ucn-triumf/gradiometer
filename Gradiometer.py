@@ -199,13 +199,14 @@ class Gradiometer:
             print ("Adjusted total: {}".format(scanTotal))
     
     def plotter(self,csvfile,mode):
-        results = np.genfromtxt(csvfile, delimiter=',', skip_header=1)
+        dtype = np.dtype([('time','M8'),('pos','f8'),('x1','f8'),('y1','f8'),('z1','f8'),('x2','f8'),('y2','f8'),('z2','f8')])
+        results = np.genfromtxt(csvfile, dtype=None, delimiter=',', skip_header=1)
         print(results.dtype)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
         time = results[:,0]
         y1pos = results[:,1]
         z1pos = y1pos-1.5
-        x1pos = y1pos-1.5
+        x1pos = y1pos-3
         x1 = results[:,2]
         y1 = results[:,3]
         z1 = results[:,4]
