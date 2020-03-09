@@ -113,11 +113,11 @@ class Gradiometer:
         print('finished at {}cm'.format(self.pos))
         self.motor.turnOffMotors()
 
-        results = np.loadtxt(filename, delimiter=',', skiprows=1)
+        results = np.genfromtxt(filename, delimiter=',', skip_header=1)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
         y1pos = results[:,1]
-        z1pos = ypos-1.5
-        x1pos = ypos-1.5
+        z1pos = y1pos-1.5
+        x1pos = y1pos-1.5
         x1 = results[:,2]
         y1 = results[:,3]
         z1 = results[:,4]
@@ -217,6 +217,8 @@ def main():
     gradiometer = Gradiometer()
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
+
+    gradiometer.posRun(0,10,'graph-test')
 
 if __name__ == '__main__':
     main()
