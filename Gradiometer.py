@@ -86,7 +86,7 @@ class Gradiometer:
     def posRun(self,start,stop,tag):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
-        fieldnames = ['time','position','x1','y1','z1','x2','y2','z2']
+        fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
         writer = csv.DictWriter(csvfile,fieldnames)
         writer.writeheader()
 
@@ -95,6 +95,7 @@ class Gradiometer:
 
         dis = stop-self.pos
         steps = math.ceil(abs(dis/self.CM_PER_STEP))+1
+        startTime = datetime.now()
         print('will take {} steps'.format(steps))
         if dis>0:
             direction = self.motor.mh.BACKWARD
@@ -102,12 +103,13 @@ class Gradiometer:
             direction = self.motor.mh.FORWARD
         try:
             for step in range(steps):
-                time = datetime.now()
+                timeStamp = datetime.now()
+                time = (timeStamp-startTime).total_seconds()
                 position = self.pos
                 [x1,y1,z1] = self.fg1.sample()
                 [x2,y2,z2] = self.fg2.sample()
                 print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
-                writer.writerow({'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
+                writer.writerow({'timestamp':timeStamp,'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
                 self.oneStep(direction)
             print('finished at {}cm'.format(self.pos))
         except KeyboardInterrupt:
@@ -199,8 +201,7 @@ class Gradiometer:
             print ("Adjusted total: {}".format(scanTotal))
     
     def plotter(self,csvfile,mode):
-        dtype = np.dtype([('time','M8'),('pos','f8'),('x1','f8'),('y1','f8'),('z1','f8'),('x2','f8'),('y2','f8'),('z2','f8')])
-        results = np.genfromtxt(csvfile, dtype=None, delimiter=',', skip_header=1)
+        results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1,2,3,4,5,6,7,8])
         print(results.dtype)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
         time = results[:,0]
