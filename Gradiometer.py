@@ -124,7 +124,7 @@ class Gradiometer:
     def timeRun(self,cm,sec,tag):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
-        fieldnames = ['time','position','x1','y1','z1','x2','y2','z2']
+        fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
         writer = csv.DictWriter(csvfile,fieldnames)
         writer.writeheader()
 
@@ -144,8 +144,8 @@ class Gradiometer:
 
         try:
             self.labjack.streamStart()
-            start = datetime.now()
-            print('starting run at {}'.format(start))
+            startTime = datetime.now()
+            print('starting run at {}'.format(startTime))
 
             for r in self.labjack.streamData():
                 if r is not None:
@@ -160,7 +160,8 @@ class Gradiometer:
                         missed += r['missed']
                         print("+++ Missed ", r['missed'])
                     
-                    time = datetime.now()
+                    timeStamp = datetime.now()
+                    time = (timeStamp-startTime).total_seconds() 
                     x1 = r['AIN0']
                     y1 = r['AIN1']
                     z1 = r['AIN2']
@@ -175,8 +176,8 @@ class Gradiometer:
                     y2val = sum(y2)/len(y2)
                     z2val = sum(z2)/len(z2)
 
-                    print('measuring at {}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time.strftime('%Y-%m-%d_%H-%M-%S'),x1val,y1val,z1val,x2val,y2val,z2val))
-                    writer.writerow({'time':time,'position':cm,'x1':x1val,'y1':y1val,'z1':z1val,'x2':x2val,'y2':y2val,'z2':z2val})
+                    print('measuring at {}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(timeStamp.strftime('%Y-%m-%d_%H-%M-%S'),x1val,y1val,z1val,x2val,y2val,z2val))
+                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':cm,'x1':x1val,'y1':y1val,'z1':z1val,'x2':x2val,'y2':y2val,'z2':z2val})
 
                     dataCount += 1
                     packetCount += r['numPackets']
@@ -189,16 +190,21 @@ class Gradiometer:
             print(traceback.extract_tb(tb, limit=1)[-1][1]) # Print what line the Exception occured on
             print(e) #  Print the exception
         finally:
-            stop = datetime.now()
+            stopTime = datetime.now()
             self.labjack.streamStop()
             #self.labjack.close()
-            print('ending run at {}'.format(stop))
+            print('ending run at {}'.format(stopTime))
             sampleTotal = packetCount * self.labjack.streamSamplesPerPacket
             scanTotal = sampleTotal / len(ainchannels)
             print("{} requests with {} packets per request with {} samples per packet = {} samples total.".format(dataCount, (float(packetCount)/dataCount), self.labjack.streamSamplesPerPacket, sampleTotal))
             print("{} samples were lost due to errors.".format(missed))
             scanTotal -= missed
             print ("Adjusted total: {}".format(scanTotal))
+            csvfile.close()
+            self.motor.turnOffMotors()
+            self.savePos()
+
+        self.plotter(filename,2)
     
     def plotter(self,csvfile,mode):
         results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1,2,3,4,5,6,7,8])
@@ -218,6 +224,9 @@ class Gradiometer:
             ax1.plot(x1pos,x1,y1pos,y1,z1pos,z1)
             ax2.plot(x1pos,x2,y1pos,y2,z1pos,z2)
             plt.show()
+        if mode==2:
+            ax1.plot(time,x1,time,y1,time,z1)
+            ax2.plot(time,x2,time,y2,time,z2)
 
 
 def main():
