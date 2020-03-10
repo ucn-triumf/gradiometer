@@ -150,7 +150,7 @@ class Gradiometer:
             for r in self.labjack.streamData():
                 if r is not None:
                     #stop condition
-                    if (datetime.now()-start).seconds > sec:
+                    if (datetime.now()-startTime).seconds > sec:
                         break
                     if r['errors'] != 0:
                         print("Error: %s ; " % r['errors'], datetime.now())
@@ -176,7 +176,7 @@ class Gradiometer:
                     y2val = sum(y2)/len(y2)
                     z2val = sum(z2)/len(z2)
 
-                    print('measuring at {}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(timeStamp.strftime('%Y-%m-%d_%H-%M-%S'),x1val,y1val,z1val,x2val,y2val,z2val))
+                    print('measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time,x1val,y1val,z1val,x2val,y2val,z2val))
                     writer.writerow({'timestamp':timeStamp, 'time':time,'position':cm,'x1':x1val,'y1':y1val,'z1':z1val,'x2':x2val,'y2':y2val,'z2':z2val})
 
                     dataCount += 1
@@ -227,6 +227,7 @@ class Gradiometer:
         if mode==2:
             ax1.plot(time,x1,time,y1,time,z1)
             ax2.plot(time,x2,time,y2,time,z2)
+            plt.show()
 
 
 def main():
@@ -234,7 +235,7 @@ def main():
     atexit.register(gradiometer.motor.turnOffMotors)
     atexit.register(gradiometer.savePos)
 
-    gradiometer.posRun(0,10,'graph-test')
+    gradiometer.timeRun(10,10,'time-graph-test')
 
 if __name__ == '__main__':
     main()
