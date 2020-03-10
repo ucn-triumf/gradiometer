@@ -20,7 +20,7 @@ from Fluxgate import Fluxgate
 
 class Gradiometer:
 
-    CM_PER_STEP = 0.0825
+    CM_PER_STEP = 0.0808
 
     def __init__(self):
         
@@ -119,9 +119,9 @@ class Gradiometer:
             self.motor.turnOffMotors()
             self.savePos()
 
-        self.plotter(filename,1)
+        self.plotter(filename,mode=1)
 
-    def timeRun(self,cm,sec,tag):
+    def timeRun(self,sec,tag,cm=37.5):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
         fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
@@ -131,7 +131,7 @@ class Gradiometer:
         ainchannels = range(6)
         channeloptions = [0] * 6
         maxrequests = 100
-        scanfreq 	= 1000
+        scanfreq = 1000
         self.labjack.getCalibrationData()
         self.labjack.streamConfig(NumChannels=len(ainchannels),ResolutionIndex=1,SettlingFactor=0,ChannelNumbers=ainchannels,ChannelOptions=channeloptions,ScanFrequency=scanfreq)
 
@@ -204,12 +204,14 @@ class Gradiometer:
             self.motor.turnOffMotors()
             self.savePos()
 
-        self.plotter(filename,2)
+        self.plotter(filename,mode=2)
     
     def plotter(self,csvfile,mode):
         results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1,2,3,4,5,6,7,8])
         print(results.dtype)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
+        ax1.grid()
+        ax2.grid()
         time = results[:,0]
         y1pos = results[:,1]
         z1pos = y1pos-1.5
@@ -231,11 +233,12 @@ class Gradiometer:
 
 
 def main():
-    gradiometer = Gradiometer()
-    atexit.register(gradiometer.motor.turnOffMotors)
-    atexit.register(gradiometer.savePos)
+    g = Gradiometer()
+    atexit.register(g.motor.turnOffMotors)
+    atexit.register(g.savePos)
 
-    gradiometer.timeRun(10,10,'time-graph-test')
+    g.zero()
+    g.goTo(15)
 
 if __name__ == '__main__':
     main()
