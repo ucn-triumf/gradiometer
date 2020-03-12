@@ -124,13 +124,12 @@ class Gradiometer:
     def timeRun(self,sec,tag,cm=37.5):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
-        fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
+        fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2','dx1','dy1','dz1','dx2','dy2','dz2']
         writer = csv.DictWriter(csvfile,fieldnames)
         writer.writeheader()
 
         ainchannels = range(6)
         channeloptions = [0] * 6
-        maxrequests = 100
         scanfreq = 1000
         self.labjack.getCalibrationData()
         self.labjack.streamConfig(NumChannels=len(ainchannels),ResolutionIndex=1,SettlingFactor=0,ChannelNumbers=ainchannels,ChannelOptions=channeloptions,ScanFrequency=scanfreq)
@@ -175,9 +174,20 @@ class Gradiometer:
                     x2val = sum(x2)/len(x2)
                     y2val = sum(y2)/len(y2)
                     z2val = sum(z2)/len(z2)
+                    
+                    dx1 = np.std(x1)
+                    dy1 = np.std(y1)
+                    dz1 = np.std(z1)
+                    dx2 = np.std(x2)
+                    dy2 = np.std(y2)
+                    dz2 = np.std(z2)
 
                     print('measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time,x1val,y1val,z1val,x2val,y2val,z2val))
-                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':cm,'x1':x1val,'y1':y1val,'z1':z1val,'x2':x2val,'y2':y2val,'z2':z2val})
+                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':cm,
+                                     'x1':x1val,'y1':y1val,'z1':z1val,
+                                     'x2':x2val,'y2':y2val,'z2':z2val,
+                                     'dx1':dx1,'dy1':dy1,'dz1':dz1,
+                                     'dx2':dx2,'dy2':dy2,'dz2':dz2})
 
                     dataCount += 1
                     packetCount += r['numPackets']
