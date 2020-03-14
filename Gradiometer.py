@@ -121,7 +121,9 @@ class Gradiometer:
 
         self.plotter(filename,mode=1)
 
-    def timeRun(self,sec,tag,cm=37.5):
+    def timeRun(self,sec,tag,cm=None):
+        if cm==None:
+            cm=self.getPos()
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
         fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2','dx1','dy1','dz1','dx2','dy2','dz2']
