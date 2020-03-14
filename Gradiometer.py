@@ -121,7 +121,7 @@ class Gradiometer:
 
         self.plotter(filename,mode=1)
 
-    def timeRun(self,sec,tag,cm=None):
+    def timeRun(self,sec,tag,cm=None,graph=True):
         if cm==None:
             cm=self.getPos()
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
@@ -215,8 +215,9 @@ class Gradiometer:
             csvfile.close()
             self.motor.turnOffMotors()
             self.savePos()
-
-        self.plotter(filename,mode=2)
+        
+        if graph==True:
+            self.plotter(filename,mode=2)
     
     def plotter(self,csvfile,mode):
         results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1,2,3,4,5,6,7,8])
