@@ -10,6 +10,8 @@ import numpy as np
 
 g=Gradiometer()
 g.zero()
-positions = np.linspace(0,80,17)
+positions = range(81)
 for pos in positions:
-    g.timeRun(10,'axial-probe-{}'.format(pos),pos,False)
+    g.timeRun(5,'axial-probe-{}'.format(pos),pos,False)
+g.motor.turnOffMotors()
+g.savePos()

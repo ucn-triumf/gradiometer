@@ -20,7 +20,7 @@ from Fluxgate import Fluxgate
 
 class Gradiometer:
 
-    CM_PER_STEP = 0.0808
+    CM_PER_STEP = 0.082424
 
     def __init__(self):
         
@@ -44,7 +44,7 @@ class Gradiometer:
         else:
             print('already at position')
         print('goTo: finished at position',self.pos)
-        self.motor.turnOffMotors()
+        #self.motor.turnOffMotors()
     
     def oneStep(self, direction):
         if direction == self.motor.mh.BACKWARD:
@@ -213,7 +213,7 @@ class Gradiometer:
             scanTotal -= missed
             print ("Adjusted total: {}".format(scanTotal))
             csvfile.close()
-            self.motor.turnOffMotors()
+            #self.motor.turnOffMotors()
             self.savePos()
         
         if graph==True:
@@ -249,9 +249,6 @@ def main():
     g = Gradiometer()
     atexit.register(g.motor.turnOffMotors)
     atexit.register(g.savePos)
-
-    g.zero()
-    g.goTo(15)
 
 if __name__ == '__main__':
     main()
