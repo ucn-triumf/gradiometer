@@ -142,6 +142,7 @@ class Gradiometer:
 
         self.goTo(cm)
         print('starting run at {}cm'.format(self.pos))
+        position = self.getPos()
 
         try:
             self.labjack.streamStart()
@@ -185,7 +186,7 @@ class Gradiometer:
                     dz2 = np.std(z2)
 
                     print('measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time,x1val,y1val,z1val,x2val,y2val,z2val))
-                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':cm,
+                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':position,
                                      'x1':x1val,'y1':y1val,'z1':z1val,
                                      'x2':x2val,'y2':y2val,'z2':z2val,
                                      'dx1':dx1,'dy1':dy1,'dz1':dz1,
