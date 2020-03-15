@@ -11,8 +11,8 @@ import atexit
 
 g=Gradiometer()
 atexit.register(g.motor.turnOffMotors)
-atexit.register(g.savePos())
+atexit.register(g.savePos)
 g.zero()
 positions = np.linspace(0,80,17)
 for pos in positions:
-    g.timeRun(5,'axial-probe-{}'.format(pos),pos,False)
+    g.timeRun(10,'axial-probe-{}'.format(pos),pos,False)
