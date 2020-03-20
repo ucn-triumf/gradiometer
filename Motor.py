@@ -1,9 +1,6 @@
 #MOTOR
 
-try:
-    from Adafruit_Motor_HAT_Python_Library.Adafruit_MotorHAT.Adafruit_MotorHAT_Motors import Adafruit_MotorHAT, Adafruit_StepperMotor
-except ImportError:
-    from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_StepperMotor
+from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_StepperMotor
 
 class Motor:
     def __init__(self):

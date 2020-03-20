@@ -15,4 +15,4 @@ atexit.register(g.savePos)
 g.zero()
 positions = np.linspace(0,80,17)
 for pos in positions:
-    g.timeRun(10,'axial-probe-{}'.format(pos),pos,False)
+    g.timeRun(10,'axial-IOswitch-{}'.format(pos),pos,False)

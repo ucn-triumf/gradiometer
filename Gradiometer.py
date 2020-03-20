@@ -10,10 +10,7 @@ import math
 import csv
 from datetime import datetime
 
-try:
-    from LabJackPython.src import u6
-except ImportError:
-    import u6
+import u6
 
 from Motor import Motor
 from Fluxgate import Fluxgate
