@@ -17,7 +17,7 @@ from Fluxgate import Fluxgate
 
 class Gradiometer:
 
-    CM_PER_STEP = 0.082424
+    CM_PER_STEP = 0.082268
 
     def __init__(self):
         

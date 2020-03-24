@@ -6,6 +6,7 @@ class Motor:
     def __init__(self):
         self.mh = Adafruit_MotorHAT()
         self.myStepper = self.mh.getStepper(200, 1)
+        self.myStepper.setSpeed(30)
 
     def turnOffMotors(self):
         self.mh.getMotor(1).run(Adafruit_MotorHAT.RELEASE)
