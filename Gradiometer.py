@@ -223,7 +223,9 @@ class Gradiometer:
         print(results.dtype)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)
         ax1.grid()
+        ax1.set_title('Fluxgate 1')
         ax2.grid()
+        ax2.set_title('Fluxgate 2')
         time = results[:,0]
         y1pos = results[:,1]
         z1pos = y1pos-1.5

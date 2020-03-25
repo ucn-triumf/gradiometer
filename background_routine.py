@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 24 16:35:42 2020
+Created on Wed Mar 25 13:38:09 2020
 
 @author: bunch
 """
@@ -12,7 +12,5 @@ g=Gradiometer()
 atexit.register(g.motor.turnOffMotors)
 atexit.register(g.savePos)
 g.zero()
-foilNum = input('foil number? \n')
-direction = input('par or perp? \n')
-g.posRun(20, 58, 'foil{}-{}-short'.format(foilNum,direction))
+g.posRun(0, 80, 'background')
 g.goTo(0)
