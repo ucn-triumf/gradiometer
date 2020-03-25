@@ -80,7 +80,7 @@ class Gradiometer:
     def calibration(self):
         self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
     
-    def posRun(self,start,stop,tag):
+    def posRun(self,start,stop,tag,graph=False):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
         fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
@@ -116,9 +116,10 @@ class Gradiometer:
             self.motor.turnOffMotors()
             self.savePos()
 
-        self.plotter(filename,mode=1)
+        if graph:
+            self.plotter(filename,mode=1)
 
-    def timeRun(self,sec,tag,cm=None,graph=True):
+    def timeRun(self,sec,tag,cm=None,graph=False):
         if cm==None:
             cm=self.getPos()
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
