@@ -80,10 +80,14 @@ class Gradiometer:
     def calibration(self):
         self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
     
-    def posRun(self,start,stop,tag,graph=False):
+    def posRun(self,start,stop,tag,graph=False,samples_per_pos=5):
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
-        fieldnames = ['timestamp','time','position','x1','y1','z1','x2','y2','z2']
+        fieldnames = ['timestamp','time','position',
+                      'x1','y1','z1',
+                      'x2','y2','z2',
+                      'dx1','dy1','dz1',
+                      'dx2','dy2','dz2']
         writer = csv.DictWriter(csvfile,fieldnames)
         writer.writeheader()
 
@@ -103,10 +107,14 @@ class Gradiometer:
                 timeStamp = datetime.now()
                 time = (timeStamp-startTime).total_seconds()
                 position = self.pos
-                [x1,y1,z1] = self.fg1.sample()
-                [x2,y2,z2] = self.fg2.sample()
+                [x1,y1,z1],[dx1,dy1,dz1] = self.fg1.sample(samples_per_pos)
+                [x2,y2,z2],[dx2,dy2,dz2] = self.fg2.sample(samples_per_pos)
                 print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
-                writer.writerow({'timestamp':timeStamp,'time':time,'position':position,'x1':x1,'y1':y1,'z1':z1,'x2':x2,'y2':y2,'z2':z2})
+                writer.writerow({'timestamp':timeStamp,'time':time,'position':position,
+                                 'x1':x1,'y1':y1,'z1':z1,
+                                 'x2':x2,'y2':y2,'z2':z2,
+                                 'dx1':dx1,'dy1':dy1,'dz1':dz1,
+                                 'dx2':dx2,'dy2':dy2,'dz2':dz2})
                 self.oneStep(direction)
             print('finished at {}cm'.format(self.pos))
         except KeyboardInterrupt:

@@ -1,5 +1,7 @@
 #FLUXGATE
 
+import numpy as np
+
 class Fluxgate:
 
     def __init__(self,labjack,num):
@@ -17,5 +19,8 @@ class Fluxgate:
         else:
             print('wrong number')
     
-    def sample(self):
-        return self.labjack.readRegister(self.xReg,self.registers)
+    def sample(self,repeats):
+        samples = np.zeros((repeats,3))
+        for i in range(repeats):
+            samples[i,:]=self.labjack.readRegister(self.xReg,self.registers)
+        return (np.average(samples,0),np.std(samples,0))
