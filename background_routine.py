@@ -11,6 +11,7 @@ import atexit
 g=Gradiometer()
 atexit.register(g.motor.turnOffMotors)
 atexit.register(g.savePos)
+atexit.register(g.labjack.close)
 g.zero()
 g.posRun(0, 80, 'background')
 g.goTo(0)

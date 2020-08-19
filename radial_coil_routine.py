@@ -12,6 +12,7 @@ import atexit
 g=Gradiometer()
 atexit.register(g.motor.turnOffMotors)
 atexit.register(g.savePos)
+atexit.register(g.labjack.close)
 g.zero()
 positions = np.linspace(14,64,51)
 for pos in positions:

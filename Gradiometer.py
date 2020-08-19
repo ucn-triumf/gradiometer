@@ -258,6 +258,7 @@ def main():
     g = Gradiometer()
     atexit.register(g.motor.turnOffMotors)
     atexit.register(g.savePos)
+    atexit.register(g.labjack.close)
 
 if __name__ == '__main__':
     main()

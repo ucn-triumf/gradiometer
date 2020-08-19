@@ -11,6 +11,7 @@ import atexit
 g=Gradiometer()
 atexit.register(g.motor.turnOffMotors)
 atexit.register(g.savePos)
+atexit.register(g.labjack.close)
 g.zero()
 foilNum = input('foil number? \n')
 direction = input('par or perp? \n')
