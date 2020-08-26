@@ -28,8 +28,13 @@ class Gradiometer:
         self.fg2 = Fluxgate(self.labjack,2)
 
     def goTo(self,cm):
+        """moves the fluxgate to the position cm, rounded to the nearest step
+
+        Args:
+            cm (float): position in cm you want the fluxgate to move to
+        """
         dis = cm-self.pos
-        steps = math.floor(abs(dis/self.CM_PER_STEP))
+        steps = round(abs(dis/self.CM_PER_STEP))
         print('goTo: starting at', self.pos)
         print('goTo: will take',steps,'steps')
         if dis>0:
@@ -44,14 +49,29 @@ class Gradiometer:
         #self.motor.turnOffMotors()
     
     def oneStep(self, direction):
+        """makes the stepper motor take one step in the specified direction
+
+        Args:
+            direction (int): 1 for forwards  (use self.motor.mh.FORWARD)
+                             2 for backwards (use self.motor.mh.BACKWARD)
+        """
         if direction == self.motor.mh.BACKWARD:
             self.motor.myStepper.oneStep(direction, self.motor.mh.DOUBLE)
             self.setPos(self.pos+self.CM_PER_STEP)
         elif direction == self.motor.mh.FORWARD:
             self.motor.myStepper.oneStep(direction, self.motor.mh.DOUBLE)
             self.setPos(self.pos-self.CM_PER_STEP)
+        else:
+            print("invalid direction, must be self.motor.mh.FORWARD or 
+                  self.motor.mh.BACKWARD")
+            # maybe this should throw an error instead?
     
     def loadPos(self):
+        """reads fluxgate position from the binary file 'POSITION.pickle'
+
+        Returns:
+            float: previously saved position of fluxgate
+        """
         posFile = open('POSITION.pickle','rb')
         try:
             pos = pickle.load(posFile)
@@ -63,24 +83,49 @@ class Gradiometer:
         return pos
     
     def savePos(self):
+        """saves the current fluxgate position self.pos to the binary file 
+           'POSITION.pickle'
+        """
         posFile = open('POSITION.pickle','wb')
         pickle.dump(self.pos, posFile)
         posFile.close()
         print('saved pos')
 
     def zero(self):
+        """sets fluxgate position to zero
+        """
         self.setPos(0)
     
     def setPos(self,x):
+        """sets fluxgate posiiton self.pos to x
+
+        Args:
+            x (float): position to set self.pos to
+        """
         self.pos = x
 
     def getPos(self):
-        return self.pos
+        """helper method for getting fluxgate position
 
-    def calibration(self):
-        self.motor.myStepper.step(1000, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
+        Returns:
+            float: the current fluxgate position self.pos
+        """
+        return self.pos
     
     def posRun(self,start,stop,tag,graph=False,samples_per_pos=5):
+        """a measurement mode where the gradiometer takes a measurement at every
+           step in a range. Saves results in a .csv in /Run_Data/
+
+        Args:
+            start (float): starting position of the measurement run in cm
+            stop (float): ending position of the measurement run in cm
+            tag (string): a string that will be included in the file name of the
+                .csv file
+            graph (bool, optional): determines whether a graph of the raw data 
+                will be shown at the end of the run. Defaults to False.
+            samples_per_pos (int, optional): number of samples averaged together
+                for each measurement. Defaults to 5.
+        """
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
         fieldnames = ['timestamp','time','position',
@@ -110,7 +155,8 @@ class Gradiometer:
                 [x1,y1,z1],[dx1,dy1,dz1] = self.fg1.sample(samples_per_pos)
                 [x2,y2,z2],[dx2,dy2,dz2] = self.fg2.sample(samples_per_pos)
                 print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
-                writer.writerow({'timestamp':timeStamp,'time':time,'position':position,
+                writer.writerow({'timestamp':timeStamp,'time':time,
+                                 'position':position,
                                  'x1':x1,'y1':y1,'z1':z1,
                                  'x2':x2,'y2':y2,'z2':z2,
                                  'dx1':dx1,'dy1':dy1,'dz1':dz1,
@@ -127,7 +173,23 @@ class Gradiometer:
         if graph:
             self.plotter(filename,mode=1)
 
-    def timeRun(self,sec,tag,cm=None,graph=False):
+    def timeRun(self,sec,tag,cm=None,graph=False,scanFreq=1000):
+        """Takes continuous measurements at a dingle position for an amount of
+           time. Saves results in a .csv in /Run_Data/
+
+        Args:
+            sec (int): the number of seconds to measure for
+            tag (string): a string that will be included in the file name of the
+                .csv file
+            cm (float, optional): the position in cm to perform the measurement
+                at. If None is given, the run is performed at the current
+                fluxgate position Defaults to None.
+            graph (bool, optional): determines whether a graph of the raw data
+                will be shown at the end of the run. Defaults to False.
+            scanFreq (int, optional): The number of times per second the Labjack
+                reads the set of 6 AINs. 1000 will produce ~5 measurements per
+                second. Defaults to 1000. Max 8000.
+        """
         if cm==None:
             cm=self.getPos()
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
@@ -138,7 +200,7 @@ class Gradiometer:
 
         ainchannels = range(6)
         channeloptions = [0] * 6
-        scanfreq = 1000
+        scanfreq = scanFreq
         self.labjack.getCalibrationData()
         self.labjack.streamConfig(NumChannels=len(ainchannels),ResolutionIndex=1,SettlingFactor=0,ChannelNumbers=ainchannels,ChannelOptions=channeloptions,ScanFrequency=scanfreq)
 
@@ -192,7 +254,8 @@ class Gradiometer:
                     dz2 = np.std(z2)
 
                     print('measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time,x1val,y1val,z1val,x2val,y2val,z2val))
-                    writer.writerow({'timestamp':timeStamp, 'time':time,'position':position,
+                    writer.writerow({'timestamp':timeStamp, 'time':time,
+                                     'position':position,
                                      'x1':x1val,'y1':y1val,'z1':z1val,
                                      'x2':x2val,'y2':y2val,'z2':z2val,
                                      'dx1':dx1,'dy1':dy1,'dz1':dz1,
@@ -227,6 +290,13 @@ class Gradiometer:
             self.plotter(filename,mode=2)
     
     def plotter(self,csvfile,mode):
+        """shows a plot of raw gradiometer data
+
+        Args:
+            csvfile (string): the path to a .csv file containing gradiometer data
+            mode (int): 1 for a .csv produced by Gradiometer.posRun
+                        2 for a .csv produced by Gradiometer.timeRun
+        """
         results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1,2,3,4,5,6,7,8])
         print(results.dtype)
         fig,[ax1,ax2]=plt.subplots(2,1,sharex=True)

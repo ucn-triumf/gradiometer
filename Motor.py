@@ -9,8 +9,10 @@ class Motor:
         self.myStepper.setSpeed(30)
 
     def turnOffMotors(self):
+        """turns off all motors on the MotorHAT
+        """
         self.mh.getMotor(1).run(Adafruit_MotorHAT.RELEASE)
         self.mh.getMotor(2).run(Adafruit_MotorHAT.RELEASE)
         self.mh.getMotor(3).run(Adafruit_MotorHAT.RELEASE)
         self.mh.getMotor(4).run(Adafruit_MotorHAT.RELEASE)
-        print('turned off')
+        print('motor turned off')
