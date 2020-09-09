@@ -62,8 +62,7 @@ class Gradiometer:
             self.motor.myStepper.oneStep(direction, self.motor.mh.DOUBLE)
             self.setPos(self.pos-self.CM_PER_STEP)
         else:
-            print("invalid direction, must be self.motor.mh.FORWARD or 
-                  self.motor.mh.BACKWARD")
+            print("invalid direction, must be self.motor.mh.FORWARD or self.motor.mh.BACKWARD")
             # maybe this should throw an error instead?
     
     def loadPos(self):
