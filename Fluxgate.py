@@ -34,4 +34,4 @@ class Fluxgate:
         samples = np.zeros((samples_per_pos,3))
         for i in range(samples_per_pos):
             samples[i,:]=self.labjack.readRegister(self.xReg,self.registers)
-        return (np.average(samples,0),np.std(samples,0))
+        return (np.average(samples,0),np.std(samples,0)/np.sqrt(samples_per_pos))
