@@ -1,6 +1,7 @@
 Adafruit_Motor_HAT_Python_Library/
 LabJackPython/
 .vscode/
+User Manual/_minted-*
 
 # Rest of this gitignore taken from: 
 # https://github.com/github/gitignore/blob/master/Python.gitignore
