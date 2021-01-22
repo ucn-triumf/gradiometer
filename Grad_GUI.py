@@ -12,6 +12,12 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+
 # This is global variable since otherwise it goes out of scope in TaskSelectDialog
 mainWindow = None
 
@@ -79,12 +85,11 @@ class TaskSelectDialog(QDialog):
         global mainWindow
         if taskType == self.TaskTypes.cal:
             mainWindow = CalibrationWindow()
+            mainWindow.show()
         elif taskType == self.TaskTypes.posRun:
             mainWindow = PosRunWindow()
+            mainWindow.showMaximized()
 
-        if mainWindow == None:
-            return
-        mainWindow.show()
         self.close()
 
 
@@ -210,21 +215,39 @@ class PosRunWindow(QMainWindow):
         super().__init__(parent)
         self.setWindowTitle('Gradiometer Position Run')
 
-        self.setFixedSize(1000, 600)
+        # self.setFixedSize(1000, 800)
         self.generalLayout = QHBoxLayout()
         self._centralWidget = QWidget(self)
         self.setCentralWidget(self._centralWidget)
         self._centralWidget.setLayout(self.generalLayout)
 
         self.configLayout = QVBoxLayout()
-        self.generalLayout.addLayout(self.configLayout)
+        self.generalLayout.addLayout(self.configLayout, 33)
 
         self.settingsLayout = QFormLayout()
         self.startEntry = QDoubleSpinBox()
         self.stopEntry = QDoubleSpinBox()
+        self.tagEntry = QLineEdit()
+        self.samplesPerPosEntry = QSpinBox()
         self.settingsLayout.addRow('Start:', self.startEntry)
         self.settingsLayout.addRow('Stop:', self.stopEntry)
+        self.settingsLayout.addRow('Tag:', self.tagEntry)
+        self.settingsLayout.addRow('Samples per Position:', self.samplesPerPosEntry)
         self.configLayout.addLayout(self.settingsLayout)
+
+        self.graphLayout = QVBoxLayout()
+        self.generalLayout.addLayout(self.graphLayout, 66)
+
+        fig = Figure(figsize=(5, 4), dpi=100)
+        self.graph = FigureCanvasQTAgg(fig)
+        self.axes = []
+        self.axes.append(fig.add_subplot(3, 1, 1).plot([1, 2, 3], [5, 3, 6]))
+        self.axes.append(fig.add_subplot(3, 1, 2).plot([1, 2, 3], [5, 3, 6]))
+        self.axes.append(fig.add_subplot(3, 1, 3).plot([1, 2, 3], [5, 3, 6]))
+
+        self.toolbar = NavigationToolbar(self.graph, self)
+        self.graphLayout.addWidget(self.toolbar)
+        self.graphLayout.addWidget(self.graph)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
