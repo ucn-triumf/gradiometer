@@ -8,6 +8,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 import math
 import csv
+import json
 from datetime import datetime
 
 import u6
@@ -17,12 +18,15 @@ from Fluxgate import Fluxgate
 
 class Gradiometer:
 
+    # This is a good baseline and it's being kept in case file saving fails, but this value is reloaded from config.json
+    # This means editing this number won't do anything
     CM_PER_STEP = 0.082268
 
     def __init__(self):
         
         self.motor = Motor()
         self.pos = self.loadPos()
+        self.CM_PER_STEP = self.loadCal()
         self.labjack = u6.U6()
         self.fg1 = Fluxgate(self.labjack,1)
         self.fg2 = Fluxgate(self.labjack,2)
@@ -32,6 +36,9 @@ class Gradiometer:
 
         Args:
             cm (float): position in cm you want the fluxgate to move to
+
+        Returns:
+            int: number of steps to take
         """
         dis = cm-self.pos
         steps = round(abs(dis/self.CM_PER_STEP))
@@ -47,6 +54,7 @@ class Gradiometer:
             print('already at position')
         print('goTo: finished at position',self.pos)
         #self.motor.turnOffMotors()
+        return steps
     
     def oneStep(self, direction):
         """makes the stepper motor take one step in the specified direction
@@ -89,6 +97,12 @@ class Gradiometer:
         pickle.dump(self.pos, posFile)
         posFile.close()
         print('saved pos')
+    
+    def loadCal(self):
+        with open('./config.json') as f:
+            data = json.load(f)
+
+        return data['CM_PER_STEP']
 
     def zero(self):
         """sets fluxgate position to zero
