@@ -89,6 +89,9 @@ class TaskSelectDialog(QDialog):
         elif taskType == self.TaskTypes.posRun:
             mainWindow = RunWindow(RunWindow.RunModes.pos)
             mainWindow.showMaximized()
+        elif taskType == self.TaskTypes.timeRun:
+            mainWindow = RunWindow(RunWindow.RunModes.time)
+            mainWindow.showMaximized()
 
         self.close()
 
@@ -209,7 +212,7 @@ class RunWindow(QMainWindow):
     class RunModes():
         """Enum for run modes"""
         pos = 1
-        run = 2
+        time = 2
 
     def __init__(self, mode, parent=None):
         """Initializes posRun class
@@ -234,18 +237,42 @@ class RunWindow(QMainWindow):
         self.generalLayout.addLayout(self.configLayout, 33)
 
         self.settingsLayout = QFormLayout()
-        self.startEntry = QDoubleSpinBox()
-        self.stopEntry = QDoubleSpinBox()
         self.tagEntry = QLineEdit()
-        self.samplesPerPosEntry = QSpinBox()
-        self.settingsLayout.addRow('Start:', self.startEntry)
-        self.settingsLayout.addRow('Stop:', self.stopEntry)
         self.settingsLayout.addRow('Tag (to be appended to file name):', self.tagEntry)
-        self.settingsLayout.addRow('Samples per position:', self.samplesPerPosEntry)
+
+        if self.mode == self.RunModes.pos:
+            self.startEntry = QDoubleSpinBox()
+            self.stopEntry = QDoubleSpinBox()
+            self.samplesPerPosEntry = QSpinBox()
+            self.samplesPerPosEntry.setValue(5)
+
+            self.settingsLayout.addRow('Start (cm):', self.startEntry)
+            self.settingsLayout.addRow('Stop (cm):', self.stopEntry)
+            self.settingsLayout.addRow('Samples per position:', self.samplesPerPosEntry)
+        elif self.mode == self.RunModes.time:
+            self.secEntry = QSpinBox()
+            self.scanFreqEntry = QSpinBox()
+            self.scanFreqEntry.setMaximum(5000)
+            self.scanFreqEntry.setValue(1000)
+            self.changePosEntry = QCheckBox()
+            self.cmEntry = QDoubleSpinBox()
+            
+            self.cmEntry.setEnabled(False)
+            self.changePosEntry.toggled.connect(lambda: self.cmEntry.setEnabled(self.changePosEntry.isChecked()))
+            
+            self.settingsLayout.addRow('Time to scan (s):', self.secEntry)
+            self.settingsLayout.addRow('Scan Frequency (Hz):', self.scanFreqEntry)
+            self.settingsLayout.addRow('Change position before scan:', self.changePosEntry)
+            self.settingsLayout.addRow('Measurement location (cm):', self.cmEntry)
+
+
         self.configLayout.addLayout(self.settingsLayout)
 
         self.operateButton = QPushButton("Start Run")
-        self.operateButton.clicked.connect(self.startRun)
+        if self.mode == self.RunModes.pos:
+            self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value()))
+        elif self.mode == self.RunModes.time:
+            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(), self.scanFreqEntry.value(), None if self.changePosEntry.isChecked() else self.cmEntry))
         self.configLayout.addWidget(self.operateButton)
 
         self.graphLayout = QVBoxLayout()
@@ -262,7 +289,10 @@ class RunWindow(QMainWindow):
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.graph)
 
-    def startRun(self, start, stop, tag, samplesPerPos):
+    def startPosRun(self, start, stop, tag, samplesPerPos):
+        pass
+
+    def startTimeRun(self, sec, tag, scanFreq, cm):
         pass
 
 if __name__ == '__main__':

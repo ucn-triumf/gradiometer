@@ -3,6 +3,9 @@ LabJackPython/
 .vscode/
 User Manual/_minted-*
 
+*.pickle
+config.json
+
 # Rest of this gitignore taken from: 
 # https://github.com/github/gitignore/blob/master/Python.gitignore
 
