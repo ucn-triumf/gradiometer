@@ -1,5 +1,9 @@
+# This is for remote development. If true it will be able to be used without physical access to the gradiometer
+# Note this is only for testing, if this is set to true the GUI will not be functional
+remoteDev = True
 
-from Gradiometer import Gradiometer
+if not remoteDev:
+    from Gradiometer import Gradiometer
 import sys
 import json
 import atexit
@@ -7,6 +11,12 @@ import threading
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
+
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
 
 # This is global variable since otherwise it goes out of scope in TaskSelectDialog
 mainWindow = None
@@ -72,11 +82,15 @@ class TaskSelectDialog(QDialog):
         Args:
             taskType (str): The type of task to start, given by TaskTypes enum
         """
+        global mainWindow
         if taskType == self.TaskTypes.cal:
-            global mainWindow
             mainWindow = CalibrationWindow()
             mainWindow.show()
-            self.close()
+        elif taskType == self.TaskTypes.posRun:
+            mainWindow = RunWindow(RunWindow.RunModes.pos)
+            mainWindow.showMaximized()
+
+        self.close()
 
 
 class CalibrationWindow(QMainWindow):
@@ -133,10 +147,15 @@ class CalibrationWindow(QMainWindow):
             "<p>The gradiometer carriage should now move approximately {}cm. Once it's done, take a tape measure and measure this distance precisely. Your measurement will be used to calibrate future step sizes. Enter the measured distance in cm in the space below (will appear when motor finishes moving). </p>".format(self.calDist))
 
 
-        self.gradiometer = initGrad()
-        self.gradiometer.zero()
+        # Sets up thread for moving the gradiometer so UI thread doesn't block
+        if not remoteDev:
+            self.gradiometer = initGrad()
+            self.gradiometer.zero()
         def goToThread():
-            self.steps = self.gradiometer.goTo(self.calDist)
+            if not remoteDev:
+                self.steps = self.gradiometer.goTo(self.calDist)
+            else:
+                self.steps = 700
 
         thread = threading.Thread(target=goToThread)
         thread.start()
@@ -158,6 +177,7 @@ class CalibrationWindow(QMainWindow):
     
     def calibrate(self, actualDistance, steps):
         """Configures calibration of the gradiometer
+        Writes to the file config.json
 
         Args:
             actualDistance (double): actual distance the gradiometer travelled
@@ -166,7 +186,9 @@ class CalibrationWindow(QMainWindow):
         with open('./config.json') as f:
             data = json.load(f)
             data["CM_PER_STEP"] = self.calDist/steps
+        # Not sure if there's a nice way of not having to open it twice, doesn't look super aesthetically pleasing
         with open('./config.json', 'w') as f:
+            # Note: some idiot decided that json.dumps is different from json.dump, be careful if you replicate this elsewhere
             json.dump(data, f)
 
     def layoutConfirmation(self):
@@ -181,8 +203,67 @@ class CalibrationWindow(QMainWindow):
         self.finishButton.clicked.connect(lambda: sys.exit())
         self.generalLayout.addWidget(self.finishButton)
         
+class RunWindow(QMainWindow):
+    """Main class for position runs"""
 
+    class RunModes():
+        """Enum for run modes"""
+        pos = 1
+        run = 2
 
+    def __init__(self, mode, parent=None):
+        """Initializes posRun class
+
+        Args:
+            mode (int): 1 for Gradiometer.posRun
+                        2 for Gradiometer.timeRun
+                    Use runModes class to ensure consistency
+            parent: Parent element to be passed to super. Defaults to None.
+        """
+        super().__init__(parent)
+        self.mode = mode
+        self.setWindowTitle('Gradiometer Position Run')
+
+        # self.setFixedSize(1000, 800)
+        self.generalLayout = QHBoxLayout()
+        self._centralWidget = QWidget(self)
+        self.setCentralWidget(self._centralWidget)
+        self._centralWidget.setLayout(self.generalLayout)
+
+        self.configLayout = QVBoxLayout()
+        self.generalLayout.addLayout(self.configLayout, 33)
+
+        self.settingsLayout = QFormLayout()
+        self.startEntry = QDoubleSpinBox()
+        self.stopEntry = QDoubleSpinBox()
+        self.tagEntry = QLineEdit()
+        self.samplesPerPosEntry = QSpinBox()
+        self.settingsLayout.addRow('Start:', self.startEntry)
+        self.settingsLayout.addRow('Stop:', self.stopEntry)
+        self.settingsLayout.addRow('Tag (to be appended to file name):', self.tagEntry)
+        self.settingsLayout.addRow('Samples per position:', self.samplesPerPosEntry)
+        self.configLayout.addLayout(self.settingsLayout)
+
+        self.operateButton = QPushButton("Start Run")
+        self.operateButton.clicked.connect(self.startRun)
+        self.configLayout.addWidget(self.operateButton)
+
+        self.graphLayout = QVBoxLayout()
+        self.generalLayout.addLayout(self.graphLayout, 66)
+
+        fig = Figure(figsize=(5, 4), dpi=100)
+        self.graph = FigureCanvasQTAgg(fig)
+        self.axes = []
+        self.axes.append(fig.add_subplot(3, 1, 1).plot([1, 2, 3], [5, 3, 6]))
+        self.axes.append(fig.add_subplot(3, 1, 2).plot([1, 2, 3], [5, 3, 6]))
+        self.axes.append(fig.add_subplot(3, 1, 3).plot([1, 2, 3], [5, 3, 6]))
+
+        self.toolbar = NavigationToolbar(self.graph, self)
+        self.graphLayout.addWidget(self.toolbar)
+        self.graphLayout.addWidget(self.graph)
+
+    def startRun(self, start, stop, tag, samplesPerPos):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
