@@ -87,7 +87,7 @@ class TaskSelectDialog(QDialog):
             mainWindow = CalibrationWindow()
             mainWindow.show()
         elif taskType == self.TaskTypes.posRun:
-            mainWindow = PosRunWindow()
+            mainWindow = RunWindow(RunWindow.RunModes.pos)
             mainWindow.showMaximized()
 
         self.close()
@@ -203,16 +203,25 @@ class CalibrationWindow(QMainWindow):
         self.finishButton.clicked.connect(lambda: sys.exit())
         self.generalLayout.addWidget(self.finishButton)
         
-class PosRunWindow(QMainWindow):
+class RunWindow(QMainWindow):
     """Main class for position runs"""
 
-    def __init__(self, parent=None):
+    class RunModes():
+        """Enum for run modes"""
+        pos = 1
+        run = 2
+
+    def __init__(self, mode, parent=None):
         """Initializes posRun class
 
         Args:
+            mode (int): 1 for Gradiometer.posRun
+                        2 for Gradiometer.timeRun
+                    Use runModes class to ensure consistency
             parent: Parent element to be passed to super. Defaults to None.
         """
         super().__init__(parent)
+        self.mode = mode
         self.setWindowTitle('Gradiometer Position Run')
 
         # self.setFixedSize(1000, 800)
@@ -231,9 +240,13 @@ class PosRunWindow(QMainWindow):
         self.samplesPerPosEntry = QSpinBox()
         self.settingsLayout.addRow('Start:', self.startEntry)
         self.settingsLayout.addRow('Stop:', self.stopEntry)
-        self.settingsLayout.addRow('Tag:', self.tagEntry)
-        self.settingsLayout.addRow('Samples per Position:', self.samplesPerPosEntry)
+        self.settingsLayout.addRow('Tag (to be appended to file name):', self.tagEntry)
+        self.settingsLayout.addRow('Samples per position:', self.samplesPerPosEntry)
         self.configLayout.addLayout(self.settingsLayout)
+
+        self.operateButton = QPushButton("Start Run")
+        self.operateButton.clicked.connect(self.startRun)
+        self.configLayout.addWidget(self.operateButton)
 
         self.graphLayout = QVBoxLayout()
         self.generalLayout.addLayout(self.graphLayout, 66)
@@ -248,6 +261,9 @@ class PosRunWindow(QMainWindow):
         self.toolbar = NavigationToolbar(self.graph, self)
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.graph)
+
+    def startRun(self, start, stop, tag, samplesPerPos):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
