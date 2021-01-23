@@ -6,6 +6,8 @@ User Manual/_minted-*
 *.pickle
 config.json
 
+*GUITest.csv
+
 # Rest of this gitignore taken from: 
 # https://github.com/github/gitignore/blob/master/Python.gitignore
 
