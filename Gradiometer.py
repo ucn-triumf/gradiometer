@@ -10,6 +10,7 @@ import math
 import csv
 import json
 from datetime import datetime
+import time as timer
 
 import u6
 
@@ -125,7 +126,7 @@ class Gradiometer:
         """
         return self.pos
     
-    def posRun(self,start,stop,tag,graph=False,samples_per_pos=5):
+    def posRun(self,start,stop,tag,graph=False,samples_per_pos=5, mes_callback=None):
         """a measurement mode where the gradiometer takes a measurement at every
            step in a range. Saves results in a .csv in /Run_Data/
 
@@ -138,6 +139,10 @@ class Gradiometer:
                 will be shown at the end of the run. Defaults to False.
             samples_per_pos (int, optional): number of samples averaged together
                 for each measurement. Defaults to 5.
+            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]): 
+                A callback function to be called every time a measurement is taken. 
+                First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
+                and third is [dx2, dy2, dz2]
         """
         filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'),tag)
         csvfile = open(filename, 'w')
@@ -165,8 +170,11 @@ class Gradiometer:
                 timeStamp = datetime.now()
                 time = (timeStamp-startTime).total_seconds()
                 position = self.pos
+                t = timer.time()
                 [x1,y1,z1],[dx1,dy1,dz1] = self.fg1.sample(samples_per_pos)
                 [x2,y2,z2],[dx2,dy2,dz2] = self.fg2.sample(samples_per_pos)
+                print('sample:', timer.time()-t)
+                t = timer.time()
                 print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
                 writer.writerow({'timestamp':timeStamp,'time':time,
                                  'position':position,
@@ -174,7 +182,17 @@ class Gradiometer:
                                  'x2':x2,'y2':y2,'z2':z2,
                                  'dx1':dx1,'dy1':dy1,'dz1':dz1,
                                  'dx2':dx2,'dy2':dy2,'dz2':dz2})
+
+                t = timer.time()
+                if mes_callback:
+                    mes_callback([x1,y1,z1], [x2,y2,z2], [dx1,dy1,dz1], [dx2,dy2,dz2])
+                print('callback:', timer.time()-t)
+                t = timer.time()
+
+                t = timer.time()
                 self.oneStep(direction)
+                print('step:', timer.time()-t)
+                t = timer.time()
             print('finished at {}cm'.format(self.pos))
         except KeyboardInterrupt:
             print('run stopped at {}cm'.format(self.pos))
@@ -186,7 +204,7 @@ class Gradiometer:
         if graph:
             self.plotter(filename,mode=1)
 
-    def timeRun(self,sec,tag,cm=None,graph=False,scanFreq=1000):
+    def timeRun(self,sec,tag,cm=None,graph=False,scanFreq=1000, mes_callback=None):
         """Takes continuous measurements at a dingle position for an amount of
            time. Saves results in a .csv in /Run_Data/
 
@@ -202,6 +220,10 @@ class Gradiometer:
             scanFreq (int, optional): The number of times per second the Labjack
                 reads the set of 6 AINs. 1000 will produce ~5 measurements per
                 second. Defaults to 1000. Max 8000.
+            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]): 
+                A callback function to be called every time a measurement is taken. 
+                First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
+                and third is [dx2, dy2, dz2]
         """
         if cm==None:
             cm=self.getPos()
@@ -265,6 +287,9 @@ class Gradiometer:
                     dx2 = np.std(x2)
                     dy2 = np.std(y2)
                     dz2 = np.std(z2)
+
+                    if mes_callback:
+                        mes_callback([x1val,y1val,z1val], [x2val,y2val,z2val], [dx1,dy1,dz1], [dx2,dy2,dz2])
 
                     print('measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(time,x1val,y1val,z1val,x2val,y2val,z2val))
                     writer.writerow({'timestamp':timeStamp, 'time':time,

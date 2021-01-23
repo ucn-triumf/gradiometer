@@ -1,16 +1,18 @@
 # This is for remote development. If true it will be able to be used without physical access to the gradiometer
 # Note this is only for testing, if this is set to true the GUI will not be functional
-remoteDev = True
+remoteDev = False
 
 if not remoteDev:
     from Gradiometer import Gradiometer
 import sys
 import json
+import time
 import atexit
 import threading
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
+import PyQt5.QtCore as QtCore
 
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -214,6 +216,7 @@ class RunWindow(QMainWindow):
         pos = 1
         time = 2
 
+
     def __init__(self, mode, parent=None):
         """Initializes posRun class
 
@@ -238,11 +241,16 @@ class RunWindow(QMainWindow):
 
         self.settingsLayout = QFormLayout()
         self.tagEntry = QLineEdit()
+        # if remoteDev:
+        # TEMP: Remove before final version of GUI
+        self.tagEntry.setText('GUITest')
         self.settingsLayout.addRow('Tag (to be appended to file name):', self.tagEntry)
 
         if self.mode == self.RunModes.pos:
             self.startEntry = QDoubleSpinBox()
             self.stopEntry = QDoubleSpinBox()
+            self.startEntry.setValue(0)
+            self.stopEntry.setValue(10)
             self.samplesPerPosEntry = QSpinBox()
             self.samplesPerPosEntry.setValue(5)
 
@@ -272,7 +280,7 @@ class RunWindow(QMainWindow):
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value()))
         elif self.mode == self.RunModes.time:
-            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(), self.scanFreqEntry.value(), None if self.changePosEntry.isChecked() else self.cmEntry))
+            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value()))
         self.configLayout.addWidget(self.operateButton)
 
         self.graphLayout = QVBoxLayout()
@@ -281,19 +289,56 @@ class RunWindow(QMainWindow):
         fig = Figure(figsize=(5, 4), dpi=100)
         self.graph = FigureCanvasQTAgg(fig)
         self.axes = []
-        self.axes.append(fig.add_subplot(3, 1, 1).plot([1, 2, 3], [5, 3, 6]))
-        self.axes.append(fig.add_subplot(3, 1, 2).plot([1, 2, 3], [5, 3, 6]))
-        self.axes.append(fig.add_subplot(3, 1, 3).plot([1, 2, 3], [5, 3, 6]))
+        self.xdata = []
+        self.ydata = []
+        self.plotRefs = []
+        for i in range(3):
+            self.xdata.append([])
+            self.ydata.append([])
+            self.axes.append(fig.add_subplot(3, 1, i+1))
+            self.plotRefs.append(None)
 
         self.toolbar = NavigationToolbar(self.graph, self)
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.graph)
 
+
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(2000)
+        self.timer.timeout.connect(self.updateGraph)
+        self.timer.start()
+
+
     def startPosRun(self, start, stop, tag, samplesPerPos):
-        pass
+        self.time = time.time()
+        self.gradiometer = initGrad()
+        self.gradThread = threading.Thread(target=lambda: self.gradiometer.posRun(start, stop, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData))
+        for i in range(3):
+            self.axes[i].set_xlim([start, stop])
+        self.gradThread.start()
+        
 
     def startTimeRun(self, sec, tag, scanFreq, cm):
-        pass
+        self.gradiometer = initGrad()
+        self.gradiometer.timeRun(sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=updateData)
+
+    def updateData(self, pos1, pos2, std1, std2):
+        for i in range(3):
+            self.xdata[i].append(self.gradiometer.pos)
+            self.ydata[i].append(pos1[i])
+    
+    def updateGraph(self):
+        # if hasattr(self, 'time'):
+        #     print(time.time()-self.time)
+        for i in range(3):
+            if self.plotRefs[i] == None:
+                self.plotRefs[i] = self.axes[i].plot(self.xdata[i], self.ydata[i])
+            else:
+                self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
+                self.axes[i].relim()
+                self.axes[i].autoscale_view(scalex=False)
+        self.graph.draw()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
