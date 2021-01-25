@@ -12,22 +12,23 @@
 \contentsline {subsubsection}{\numberline {\kern -1em}SSH to the Raspberry Pi}{7}{subsubsection.1.2.2}%
 \contentsline {subsubsection}{\numberline {\kern -1em}GitHub Repository}{7}{subsubsection.1.2.3}%
 \contentsline {section}{\numberline {\kern -1em}Control Code}{8}{section.2}%
-\contentsline {subsection}{\numberline {\kern -1em}Basics}{8}{subsection.2.1}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Gradiometer.py}{8}{subsubsection.2.1.1}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Motor.py}{11}{subsubsection.2.1.2}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Fluxgate.py}{11}{subsubsection.2.1.3}%
-\contentsline {subsection}{\numberline {\kern -1em}Calibration}{11}{subsection.2.2}%
-\contentsline {subsection}{\numberline {\kern -1em}Data Acquisition}{12}{subsection.2.3}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Using \mintinline [bgcolor=LightGrey]{python}{atexit}}{12}{subsubsection.2.3.1}%
-\contentsline {subsubsection}{\numberline {\kern -1em}\mintinline [bgcolor=LightGrey]{python}{posRun} example}{13}{subsubsection.2.3.2}%
-\contentsline {subsubsection}{\numberline {\kern -1em}\mintinline [bgcolor=LightGrey]{python}{timeRun} example}{13}{subsubsection.2.3.3}%
-\contentsline {section}{\numberline {\kern -1em}Appendix}{14}{section.3}%
-\contentsline {subsection}{\numberline {\kern -1em}Additional Figures}{14}{subsection.3.1}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Fluxgate Schematic}{14}{subsubsection.3.1.1}%
-\contentsline {subsubsection}{\numberline {\kern -1em}PSU Amplifier Circuit Diagram}{15}{subsubsection.3.1.2}%
-\contentsline {subsubsection}{\numberline {\kern -1em}PSU Filter Circuit Diagram}{15}{subsubsection.3.1.3}%
-\contentsline {subsubsection}{\numberline {\kern -1em}Gradiometer Shielding}{16}{subsubsection.3.1.4}%
-\contentsline {section}{\numberline {\kern -1em}Logs}{18}{section.4}%
-\contentsline {subsection}{\numberline {\kern -1em}User Manual Version}{18}{subsection.4.1}%
-\contentsline {subsection}{\numberline {\kern -1em}RPi WiFi Credentials}{18}{subsection.4.2}%
-\contentsline {subsection}{\numberline {\kern -1em}Gradiometer GitHub Repository}{18}{subsection.4.3}%
+\contentsline {subsection}{\numberline {\kern -1em}Graphical User Interface (GUI)}{8}{subsection.2.1}%
+\contentsline {subsection}{\numberline {\kern -1em}Code Basics}{9}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Gradiometer.py}{9}{subsubsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Motor.py}{12}{subsubsection.2.2.2}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Fluxgate.py}{12}{subsubsection.2.2.3}%
+\contentsline {subsection}{\numberline {\kern -1em}Calibration}{12}{subsection.2.3}%
+\contentsline {subsection}{\numberline {\kern -1em}Data Acquisition}{13}{subsection.2.4}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Using \mintinline [bgcolor=LightGrey]{python}{atexit}}{13}{subsubsection.2.4.1}%
+\contentsline {subsubsection}{\numberline {\kern -1em}\mintinline [bgcolor=LightGrey]{python}{posRun} example}{14}{subsubsection.2.4.2}%
+\contentsline {subsubsection}{\numberline {\kern -1em}\mintinline [bgcolor=LightGrey]{python}{timeRun} example}{14}{subsubsection.2.4.3}%
+\contentsline {section}{\numberline {\kern -1em}Appendix}{15}{section.3}%
+\contentsline {subsection}{\numberline {\kern -1em}Additional Figures}{15}{subsection.3.1}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Fluxgate Schematic}{15}{subsubsection.3.1.1}%
+\contentsline {subsubsection}{\numberline {\kern -1em}PSU Amplifier Circuit Diagram}{16}{subsubsection.3.1.2}%
+\contentsline {subsubsection}{\numberline {\kern -1em}PSU Filter Circuit Diagram}{16}{subsubsection.3.1.3}%
+\contentsline {subsubsection}{\numberline {\kern -1em}Gradiometer Shielding}{17}{subsubsection.3.1.4}%
+\contentsline {section}{\numberline {\kern -1em}Logs}{19}{section.4}%
+\contentsline {subsection}{\numberline {\kern -1em}User Manual Version}{19}{subsection.4.1}%
+\contentsline {subsection}{\numberline {\kern -1em}RPi WiFi Credentials}{19}{subsection.4.2}%
+\contentsline {subsection}{\numberline {\kern -1em}Gradiometer GitHub Repository}{19}{subsection.4.3}%

@@ -191,22 +191,46 @@ git push
 to send updates or data to the server. When using \shellinline{push} and \shellinline{pull}, you will be asked to provide a passphrase, which is simply \shellinline{gradiometer}.
 
 \section{Control Code} \label{sec:ControlCode}
-The library of code controlling the gradiometer has gone through many iterations expanding functionality. The current code was written by Cole Bunch, heavily borrowing from Nadia Chigmaroff and Matthew Wilson.
+The library of code controlling the gradiometer has gone through many iterations expanding functionality. The current code was written by Cole Bunch and the GUI by Xander Naumenko, heavily borrowing from Nadia Chigmaroff and Matthew Wilson.
 
 Nadia was responsible for transitioning the code to an object-oriented approach. As we will see \hyperref[subsec:Acquisition]{later}, using objects is convenient for issuing commands to the gradiometer on the fly, as well as scripting specific measurement sequences. It is also useful for creating live plots and (in the future) GUIs.
 
-Nadia's code operating using multithreading, where one thread continuously moved the motor back and forth and the other read continuous measurements from the Labjack in a time series. While the position of the fluxgate can be inferred by multiplying the time stamp of each measurement by the average velocity of the fluxgate cart, this does not take advantage of the discrete steps of the stepper motor or allow for measuring in specific locations. For this reason, the multithreading was removed and the code now single steps the motor and makes a measurement in an alternating sequence on the same thread. Multithreading may still be useful for making live plots because they can be continuously rendered regardless of the sequence of measurement. Nadia and Matthew had implemented live plotting using pyqt, but that has not yet been adapted into the new code, which merely prints out measurements to the console.
+Nadia's code operating using multithreading, where one thread continuously moved the motor back and forth and the other read continuous measurements from the Labjack in a time series. While the position of the fluxgate can be inferred by multiplying the time stamp of each measurement by the average velocity of the fluxgate cart, this does not take advantage of the discrete steps of the stepper motor or allow for measuring in specific locations. For this reason, the multithreading was removed and the code now single steps the motor and makes a measurement in an alternating sequence on the same thread. Nadia and Matthew had implemented live plotting using pyqt, but that has since been replaced by the new GUI due to the different code bases. 
 
 Nadia and Matthew's unchanged code is still available on the RPi in \shellinline{/home/gradiometer/} in the files \shellinline{LiveGraph.py}, \shellinline{LiveGraph2.py}, and \shellinline{vel_test.py}. Nadia's full report on the design of the object-oriented, multithreaded code can be found \href{https://ucn.triumf.ca/edm/magnetic-shielding/gradiometer-setup-at-triumf/TRIUMF%20Final%20Report%20Chigmaroff.pdf/view}{here} and Mathew's report with some updates and further work can be found \href{https://ucn.triumf.ca/edm/magnetic-shielding/gradiometer-setup-at-triumf/Gradiometer_Report.pdf/view}{here}.
 
 The following sections will cover:
 \begin{enumerate}
+	\item The graphical user interface and how to use it
 	\item The basic structure of the code and what each function does.
 	\item Some important information on how to calibrate the gradiometer.
 	\item How to combine functions into a measurement script.
 \end{enumerate}
-\subsection{Basics} \label{subsec:CodeBasics}
-The gradiometer is currently controlled by using three python classes stored in \shellinline{/home/gradiometer/}. Most of the functionality is in \shellinline{Gradiometer.py}, while \shellinline{Motor.py} and \shellinline{Fluxgate.py} are used by \shellinline{Gradiometer.py} for functions related to the stepper motor and fluxgates respectively.
+\subsection{Graphical User Interface (GUI)} \label{subsec:GUI}
+All of the code described below has been wrapped in a GUI that has (almost) identical functionality to using a python scripting approach. The benefit of having such a GUI is that it's easier to learn to use, as well as having live graphs while mapping to make sure nothing is going wrong as the user is taking data. 
+
+All of the code for the GUI is in \shellinline{/home/pi/gradiometer/Grad_GUI.py}. To use it, go to the directory in a terminal and execute the python file by running the command \shellinline{python3 Grad_GUI.py}. The GUI should pop up a prompt for the mode to run it in. There are three modes that the GUI can be used in: calibration, position run and time run. The first is to calibrate the stepper motor step size, while the latter two correspond to the two measurement methods described in detail below. 
+
+The calibration mode has instructions embedded in the GUI for what to do, so follow them and the calibration should be done automatically. For more information on what exactly it is doing, see the subsection below on calibration. 
+
+For the two measurement modes, the functionality of the GUI exactly mirrors that of the original python functions. For information about what all the parameters mean, see the \pyinline{posRun} and \pyinline{timeRun} documentation below in the \hyperref[subsec:CodeBasics]{Code Basics} section. Once all the paramters have been set on the left side of the screen, you can click the begin run button to start live graphing the mapping on the screen. Note that you can take multiple measurements within the same session of the GUI by adjusting parameters and starting another run after the first, and both measurements will be overlayed on each other to give a better understanding of the underlying behaviour of the magnetic field. 
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.2]{GUI_calibration}
+	\caption{Calibration user interface.}
+	\label{fig:PSUpinouts}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.2]{GUI_posRun}
+	\caption{Position run interface. Note that time run interface is extremely similar.}
+	\label{fig:PSUpinouts}
+\end{figure}
+
+\subsection{Code Basics} \label{subsec:CodeBasics}
+The gradiometer is currently controlled by using three python classes stored in \shellinline{/home/pi/gradiometer/}. Most of the functionality is in \shellinline{Gradiometer.py}, while \shellinline{Motor.py} and \shellinline{Fluxgate.py} are used by \shellinline{Gradiometer.py} for functions related to the stepper motor and fluxgates respectively.
 
 \subsubsection{Gradiometer.py}
 This class contains all of the top level functions and is responsible for most of the gradiometer operation. The class has one class variable called \pyinline{CM_PER_STEP=0.08} which defines how many centimeters the fluxgate cart moves for each stepper motor step. See \hyperref[subsec:Calibration]{Calibration} for how to set this variable.
@@ -284,13 +308,13 @@ The first factor is using a reference position. In order to get consistent and r
 
 The next factor is backlash, which is something that affects all timing belt systems. When the fluxgate is moving, only one side of the pulley teeth are in contact with one side of the timing belt teeth, with a small amount of clearance on the other side to allow the belt teeth to easily enter and exit the gear grooves. When the fluxgate switches directions, it takes 2-3 steps for the pulley to close this gap and engage the other side of the belt teeth, at which point the fluxgate actually starts to move in the other direction. To combat this effect, the direction of measurement should be determined before the run so that the proper side can be engaged. The fluxgate should be moved to the reference position in the opposite direction to the direction you want it to measure in. For example, if your reference position is at the motor end of the gradiometer and you want do a \pyinline{posRun} into the shielding (the "BACKWARDS" direction), the fluxgate should be moved by hand in the "FORWARD" direction to the reference position. This way, the proper side of the teeth will be engaged and the fluxgate will start moving on the first step. In this case, the position will be accurate as long as the fluxgate is traveling in the "BACKWARD" direction.
 
-The last thing to check is the \pyinline{CM_PER_STEP} parameter. For unknown reasons, this number can change slightly on different days. It's a good practice to do a quick check before spending a day taking measurements. The steps to do this are as follows:
+The last thing to check is the \pyinline{CM_PER_STEP} parameter. For unknown reasons, this number can change slightly on different days. It's a good practice to do a quick check before spending a day taking measurements. To do this calibration one would normally use the calibration GUI as described above. If this is not possible the steps to do this manually are as follows:
 \begin{enumerate}
 	\item Move the fluxgate to the far motor end of the gradiometer and mark the location on the frame.
 	\item Use the \pyinline{Gradiometer.zero()} method to set the position to zero.
 	\item Call \pyinline{Gradiometer.goTo(80)} to move the fluxgate approximately 80cm. \pyinline{goTo} will print the number of steps it is taking in the console as \shellinline{'goTo: will take (number) steps'}.
 	\item Mark the end location on the frame and use a tape measure to find the distance the fluxgate moved.
-	\item Divide the distance traveled in cm by the number of steps taken and set \pyinline{CM_PER_STEP} to this result.
+	\item Divide the distance traveled in cm by the number of steps taken and set \pyinline{CM_PER_STEP} in \shellinline{config.json} to this result.
 \end{enumerate}
 
 \subsection{Data Acquisition} \label{subsec:Acquisition}
@@ -428,7 +452,9 @@ In this script, a loop is used to take 10 second recordings at 17 positions betw
 		\hline
 		\textbf{Version} & \textbf{Date} & \textbf{Author} & \textbf{Notes/Changes} \\
 		\hline
-		1.0 & TBD & Cole Bunch &  \\
+		1.0 & 1.1.2021 & Cole Bunch &  \\
+		\hline
+		2.0 & TBD & Xander Naumenko &  Added GUI description and new repository\\
 		\hline
 		&  &  &  \\
 		\hline
@@ -446,7 +472,7 @@ The credentials for TRIUMF Secure WiFi access located in \pyinline{/etc/wpa_supp
 	\hline
 	\textbf{Name} & \textbf{Start date} & \textbf{End date} & \textbf{Contact email} \\
 	\hline
-	Cole Bunch & 1.1.2020 & 31.5.2020 & bunchcole@gmail.com \\
+	Cole Bunch & 1.1.2021 & 31.5.2020 & bunchcole@gmail.com \\
 	\hline
 	Beatrice Franke & 9.9.2020 & Current & bfranke@triumf.ca \\
 	\hline
