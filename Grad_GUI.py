@@ -213,6 +213,7 @@ class RunWindow(QMainWindow):
 
     initGraph = False
     gradiometer = None
+    runNum = 0
 
     class RunModes():
         """Enum for run modes"""
@@ -296,7 +297,7 @@ class RunWindow(QMainWindow):
         self.graphLayout = QVBoxLayout()
         self.generalLayout.addLayout(self.graphLayout, 66)
 
-        fig = Figure(figsize=(5, 4), dpi=100)
+        fig = Figure(dpi=100)
         self.graph = FigureCanvasQTAgg(fig)
         self.axes = []
         self.xdata = []
@@ -328,7 +329,7 @@ class RunWindow(QMainWindow):
             start, stop, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData))
         for i in range(3):
             self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
-                start, stop))-1, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
+                start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
         self.gradThread.start()
 
     def startTimeRun(self, sec, tag, scanFreq, cm):
@@ -342,6 +343,7 @@ class RunWindow(QMainWindow):
 
     def setupRun(self):
         """Sets up shared run settings for pos and time runs"""
+        self.operateButton.setEnabled(False)
         self.startTime = time.time()
         if not self.gradiometer:
             self.gradiometer = initGrad()
@@ -349,6 +351,7 @@ class RunWindow(QMainWindow):
             self.xdata[i] = []
             self.ydata[i] = []
         self.initGraph = True
+        self.runNum += 1
 
     def updateData(self, pos1, pos2, std1, std2):
         """Updates data, to be called from gradThread
@@ -368,18 +371,19 @@ class RunWindow(QMainWindow):
 
     def updateGraph(self):
         """Updates graphs periodically"""
-        # if hasattr(self, 'startTIme'):
-        #     print(time.time()-self.startTime)
         for i in range(3):
             if len(self.xdata[i]) == 0:
                 return
             if self.initGraph == True:
                 self.plotRefs[i] = self.axes[i].plot(
-                    self.xdata[i], self.ydata[i])
+                    self.xdata[i], self.ydata[i], label="Run {}".format(self.runNum))
+                self.axes[i].legend()
             else:
                 self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
                 self.axes[i].relim()
                 self.axes[i].autoscale_view(scalex=False)
+        if not self.gradThread.is_alive():
+            self.operateButton.setEnabled(True)
         if self.initGraph:
             self.initGraph = False
         self.graph.draw()
