@@ -1,24 +1,24 @@
 # This is for remote development. If true it will be able to be used without physical access to the gradiometer
 # Note this is only for testing, if this is set to true the GUI will not be functional
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+import matplotlib
+import PyQt5.QtCore as QtCore
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+import threading
+import atexit
+import time
+import json
+import sys
 remoteDev = False
 
 if not remoteDev:
     from Gradiometer import Gradiometer
-import sys
-import json
-import time
-import atexit
-import threading
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import Qt
-import PyQt5.QtCore as QtCore
 
-import matplotlib
 matplotlib.use('Qt5Agg')
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
-from matplotlib.figure import Figure
 
 # This is global variable since otherwise it goes out of scope in TaskSelectDialog
 mainWindow = None
@@ -151,11 +151,11 @@ class CalibrationWindow(QMainWindow):
         self.instructions.setText(
             "<p>The gradiometer carriage should now move approximately {}cm. Once it's done, take a tape measure and measure this distance precisely. Your measurement will be used to calibrate future step sizes. Enter the measured distance in cm in the space below (will appear when motor finishes moving). </p>".format(self.calDist))
 
-
         # Sets up thread for moving the gradiometer so UI thread doesn't block
         if not remoteDev:
             self.gradiometer = initGrad()
             self.gradiometer.zero()
+
         def goToThread():
             if not remoteDev:
                 self.steps = self.gradiometer.goTo(self.calDist)
@@ -178,8 +178,6 @@ class CalibrationWindow(QMainWindow):
         self.distanceButton.clicked.connect(nextScreen)
         self.generalLayout.addWidget(self.distanceButton)
 
-
-    
     def calibrate(self, actualDistance, steps):
         """Configures calibration of the gradiometer
         Writes to the file config.json
@@ -202,20 +200,24 @@ class CalibrationWindow(QMainWindow):
         self.distanceButton.setParent(None)
 
         self.intro.setText("<p>All done!</p>")
-        self.instructions.setText("<p>Calibration data has been written to file, and you can start measurements now.</p>")
+        self.instructions.setText(
+            "<p>Calibration data has been written to file, and you can start measurements now.</p>")
 
         self.finishButton = QPushButton("Exit")
         self.finishButton.clicked.connect(lambda: sys.exit())
         self.generalLayout.addWidget(self.finishButton)
-        
+
+
 class RunWindow(QMainWindow):
     """Main class for position runs"""
+
+    initGraph = False
+    gradiometer = None
 
     class RunModes():
         """Enum for run modes"""
         pos = 1
         time = 2
-
 
     def __init__(self, mode, parent=None):
         """Initializes posRun class
@@ -244,7 +246,8 @@ class RunWindow(QMainWindow):
         # if remoteDev:
         # TEMP: Remove before final version of GUI
         self.tagEntry.setText('GUITest')
-        self.settingsLayout.addRow('Tag (to be appended to file name):', self.tagEntry)
+        self.settingsLayout.addRow(
+            'Tag (to be appended to file name):', self.tagEntry)
 
         if self.mode == self.RunModes.pos:
             self.startEntry = QDoubleSpinBox()
@@ -256,31 +259,38 @@ class RunWindow(QMainWindow):
 
             self.settingsLayout.addRow('Start (cm):', self.startEntry)
             self.settingsLayout.addRow('Stop (cm):', self.stopEntry)
-            self.settingsLayout.addRow('Samples per position:', self.samplesPerPosEntry)
+            self.settingsLayout.addRow(
+                'Samples per position:', self.samplesPerPosEntry)
         elif self.mode == self.RunModes.time:
             self.secEntry = QSpinBox()
+            self.secEntry.setValue(5)
             self.scanFreqEntry = QSpinBox()
             self.scanFreqEntry.setMaximum(5000)
             self.scanFreqEntry.setValue(1000)
             self.changePosEntry = QCheckBox()
             self.cmEntry = QDoubleSpinBox()
-            
-            self.cmEntry.setEnabled(False)
-            self.changePosEntry.toggled.connect(lambda: self.cmEntry.setEnabled(self.changePosEntry.isChecked()))
-            
-            self.settingsLayout.addRow('Time to scan (s):', self.secEntry)
-            self.settingsLayout.addRow('Scan Frequency (Hz):', self.scanFreqEntry)
-            self.settingsLayout.addRow('Change position before scan:', self.changePosEntry)
-            self.settingsLayout.addRow('Measurement location (cm):', self.cmEntry)
 
+            self.cmEntry.setEnabled(False)
+            self.changePosEntry.toggled.connect(
+                lambda: self.cmEntry.setEnabled(self.changePosEntry.isChecked()))
+
+            self.settingsLayout.addRow('Time to scan (s):', self.secEntry)
+            self.settingsLayout.addRow(
+                'Scan Frequency (Hz):', self.scanFreqEntry)
+            self.settingsLayout.addRow(
+                'Change position before scan:', self.changePosEntry)
+            self.settingsLayout.addRow(
+                'Measurement location (cm):', self.cmEntry)
 
         self.configLayout.addLayout(self.settingsLayout)
 
         self.operateButton = QPushButton("Start Run")
         if self.mode == self.RunModes.pos:
-            self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value()))
+            self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(
+            ), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value()))
         elif self.mode == self.RunModes.time:
-            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value()))
+            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(
+            ), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value()))
         self.configLayout.addWidget(self.operateButton)
 
         self.graphLayout = QVBoxLayout()
@@ -296,48 +306,99 @@ class RunWindow(QMainWindow):
             self.xdata.append([])
             self.ydata.append([])
             self.axes.append(fig.add_subplot(3, 1, i+1))
+            self.axes[i].set_xlabel(
+                "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)")
+            self.axes[i].set_ylabel("B{}".format(
+                "x" if i == 0 else ("y" if i == 1 else "z")))
             self.plotRefs.append(None)
 
         self.toolbar = NavigationToolbar(self.graph, self)
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.graph)
 
-
         self.timer = QtCore.QTimer()
         self.timer.setInterval(2000)
         self.timer.timeout.connect(self.updateGraph)
         self.timer.start()
 
-
     def startPosRun(self, start, stop, tag, samplesPerPos):
-        self.time = time.time()
-        self.gradiometer = initGrad()
-        self.gradThread = threading.Thread(target=lambda: self.gradiometer.posRun(start, stop, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData))
+        """Starts position run. Arguments are same as in Gradiometer.posRun"""
+        self.setupRun()
+        self.gradThread = threading.Thread(target=lambda: self.gradiometer.posRun(
+            start, stop, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData))
         for i in range(3):
-            self.axes[i].set_xlim([start, stop])
+            self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
+                start, stop))-1, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
         self.gradThread.start()
-        
 
     def startTimeRun(self, sec, tag, scanFreq, cm):
-        self.gradiometer = initGrad()
-        self.gradiometer.timeRun(sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=updateData)
+        """Starts time run. Arguments are same as in Gradiometer.timeRun"""
+        self.setupRun()
+        self.gradThread = threading.Thread(target=lambda: self.gradiometer.timeRun(
+            sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData))
+        for i in range(3):
+            self.axes[i].set_xlim([0, max(self.axes[i].get_ylim()[1], sec)+1])
+        self.gradThread.start()
+
+    def setupRun(self):
+        """Sets up shared run settings for pos and time runs"""
+        self.startTime = time.time()
+        if not self.gradiometer:
+            self.gradiometer = initGrad()
+        for i in range(3):
+            self.xdata[i] = []
+            self.ydata[i] = []
+        self.initGraph = True
 
     def updateData(self, pos1, pos2, std1, std2):
+        """Updates data, to be called from gradThread
+
+        Args (All in (x, y, ) format):
+            pos1 (List[Float]): List of magnetic fields at position 1
+            pos2 (List[Float]): List of magnetic fields at position 2
+            std1 (List[Float]): List of standard deviations for pos 1
+            std2 (List[Float]): List of standard deviations for pos 1
+        """
         for i in range(3):
-            self.xdata[i].append(self.gradiometer.pos)
             self.ydata[i].append(pos1[i])
-    
+            if self.mode == self.RunModes.pos:
+                self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
+            elif self.mode == self.RunModes.time:
+                self.xdata[i].append(time.time()-self.startTime)
+
     def updateGraph(self):
-        # if hasattr(self, 'time'):
-        #     print(time.time()-self.time)
+        """Updates graphs periodically"""
+        # if hasattr(self, 'startTIme'):
+        #     print(time.time()-self.startTime)
         for i in range(3):
-            if self.plotRefs[i] == None:
-                self.plotRefs[i] = self.axes[i].plot(self.xdata[i], self.ydata[i])
+            if len(self.xdata[i]) == 0:
+                return
+            if self.initGraph == True:
+                self.plotRefs[i] = self.axes[i].plot(
+                    self.xdata[i], self.ydata[i])
             else:
                 self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
                 self.axes[i].relim()
                 self.axes[i].autoscale_view(scalex=False)
+        if self.initGraph:
+            self.initGraph = False
         self.graph.draw()
+
+    def getOffset(self, i):
+        """Get's offset of magnetometer
+
+        Args:
+            i (int): axis, 1=x, 2=y, 3=z
+
+        Returns:
+            int: offset of the given axis
+        """
+        if i == 0:
+            return -3
+        elif i == 1:
+            return 0
+        elif i == 2:
+            return -1.5
 
 
 if __name__ == '__main__':
