@@ -267,7 +267,7 @@ class RunWindow(QMainWindow):
             self.secEntry.setValue(5)
             self.scanFreqEntry = QSpinBox()
             self.scanFreqEntry.setMaximum(5000)
-            self.scanFreqEntry.setValue(1000)
+            self.scanFreqEntry.setValue(500)
             self.changePosEntry = QCheckBox()
             self.cmEntry = QDoubleSpinBox()
 
@@ -344,7 +344,6 @@ class RunWindow(QMainWindow):
     def setupRun(self):
         """Sets up shared run settings for pos and time runs"""
         self.operateButton.setEnabled(False)
-        self.startTime = time.time()
         if not self.gradiometer:
             self.gradiometer = initGrad()
         for i in range(3):
@@ -367,6 +366,8 @@ class RunWindow(QMainWindow):
             if self.mode == self.RunModes.pos:
                 self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
             elif self.mode == self.RunModes.time:
+                if len(self.xdata[i]) == 0 and self.initGraph:
+                    self.startTime = time.time()
                 self.xdata[i].append(time.time()-self.startTime)
 
     def updateGraph(self):
@@ -376,7 +377,7 @@ class RunWindow(QMainWindow):
                 return
             if self.initGraph == True:
                 self.plotRefs[i] = self.axes[i].plot(
-                    self.xdata[i], self.ydata[i], label="Run {}".format(self.runNum))
+                    self.xdata[i], self.ydata[i], 'o', label="Run {}".format(self.runNum))
                 self.axes[i].legend()
             else:
                 self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
