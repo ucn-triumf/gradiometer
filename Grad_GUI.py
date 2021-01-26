@@ -250,6 +250,10 @@ class RunWindow(QMainWindow):
         self.settingsLayout.addRow(
             'Tag (to be appended to file name):', self.tagEntry)
 
+        self.repeatsEntry = QSpinBox()
+        self.repeatsEntry.setValue(1)
+        self.settingsLayout.addRow("Number of times to repeat measurement:", self.repeatsEntry)
+
         if self.mode == self.RunModes.pos:
             self.startEntry = QDoubleSpinBox()
             self.stopEntry = QDoubleSpinBox()
@@ -288,10 +292,10 @@ class RunWindow(QMainWindow):
         self.operateButton = QPushButton("Start Run")
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(
-            ), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value()))
+            ), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value(), self.repeatsEntry.value()))
         elif self.mode == self.RunModes.time:
             self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(
-            ), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value()))
+            ), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value(), self.repeatsEntry.value()))
         self.configLayout.addWidget(self.operateButton)
 
         self.graphLayout = QVBoxLayout()
@@ -322,28 +326,29 @@ class RunWindow(QMainWindow):
         self.timer.timeout.connect(self.updateGraph)
         self.timer.start()
 
-    def startPosRun(self, start, stop, tag, samplesPerPos):
+    def startPosRun(self, start, stop, tag, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
-        self.setupRun()
-        self.gradThread = threading.Thread(target=lambda: self.gradiometer.posRun(
-            start, stop, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData))
+        self.operateButton.setEnabled(False)
+        gradCallback = lambda i: self.gradiometer.posRun(
+            start if i%2==0 else stop, stop if i%2==0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
+        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
         for i in range(3):
             self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
                 start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
         self.gradThread.start()
 
-    def startTimeRun(self, sec, tag, scanFreq, cm):
+    def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
         """Starts time run. Arguments are same as in Gradiometer.timeRun"""
-        self.setupRun()
-        self.gradThread = threading.Thread(target=lambda: self.gradiometer.timeRun(
-            sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData))
+        self.operateButton.setEnabled(False)
+        gradCallback = lambda i: self.gradiometer.timeRun(
+            sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData)
+        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
         for i in range(3):
             self.axes[i].set_xlim([0, max(self.axes[i].get_ylim()[1], sec)+1])
         self.gradThread.start()
 
     def setupRun(self):
         """Sets up shared run settings for pos and time runs"""
-        self.operateButton.setEnabled(False)
         if not self.gradiometer:
             self.gradiometer = initGrad()
         for i in range(3):
@@ -351,6 +356,18 @@ class RunWindow(QMainWindow):
             self.ydata[i] = []
         self.initGraph = True
         self.runNum += 1
+
+    def repeatRun(self, repeats, runCallback):
+        """Repeats a run of the given callback
+
+        Args:
+            repeats (int): number of repeats
+            runCallback (Function): Callback that takes which iteration it's on
+        """
+        for i in range(repeats):
+            self.setupRun()
+            runCallback(i)
+            time.sleep(1)
 
     def updateData(self, pos1, pos2, std1, std2):
         """Updates data, to be called from gradThread
