@@ -310,15 +310,18 @@ class RunWindow(QMainWindow):
         self.ydata = []
         self.error = []
         self.plotRefs = []
-        for i in range(3):
+
+        self.numPlots = 6 if self.mode == self.RunModes.pos else 3
+
+        for i in range(self.numPlots):
             self.xdata.append([])
             self.ydata.append([])
             self.error.append([])
-            self.axes.append(fig.add_subplot(3, 1, i+1))
+            self.axes.append(fig.add_subplot(self.numPlots, 1, i+1))
             self.axes[i].set_xlabel(
                 "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)")
             self.axes[i].set_ylabel("B{}".format(
-                "x" if i == 0 else ("y" if i == 1 else "z")))
+                "x" if i%3 == 0 else ("y" if i%3 == 1 else "z")))
             self.plotRefs.append(None)
 
         self.toolbar = NavigationToolbar(self.graph, self)
@@ -339,6 +342,7 @@ class RunWindow(QMainWindow):
         for i in range(3):
             self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
                 start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
+            self.axes[i+3].set_xlim([20, 60])
         self.gradThread.start()
 
     def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
@@ -392,16 +396,25 @@ class RunWindow(QMainWindow):
 
     def updateGraph(self):
         """Updates graphs periodically"""
-        for i in range(3):
-            if len(self.xdata[i]) == 0:
+        for i in range(self.numPlots):
+            if len(self.xdata[i%3]) == 0:
                 return
             if self.initGraph == True:
                 self.plotRefs[i] = self.axes[i].errorbar(
-                    self.xdata[i], self.ydata[i], self.error[i], fmt='o', label="Run {}".format(self.runNum))
+                    self.xdata[i%3], self.ydata[i%3], self.error[i%3], fmt='o', label="Run {}".format(self.runNum))
                 self.axes[i].legend()
             else:
                 # self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
-                update_errorbar(self.plotRefs[i], np.array(self.xdata[i]), np.array(self.ydata[i]), yerr=np.array(self.error[i]))
+                if i < 3:
+                    update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3]), np.array(self.ydata[i%3]), yerr=np.array(self.error[i%3]))
+                else:
+                    try: 
+                        lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > 20)
+                        upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < 60)
+                        update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3][lower:upper]), np.array(self.ydata[i%3][lower:upper]), yerr=np.array(self.error[i%3][lower:upper]))
+                    except ValueError:
+                        pass
+
                 self.axes[i].relim()
                 self.axes[i].autoscale_view(scalex=False)
         if not self.gradThread.is_alive():

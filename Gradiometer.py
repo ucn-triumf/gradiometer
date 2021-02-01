@@ -356,6 +356,7 @@ class Gradiometer:
 
 def main():
     g = Gradiometer()
+    g.zero()
     atexit.register(g.motor.turnOffMotors)
     atexit.register(g.savePos)
     atexit.register(g.labjack.close)
