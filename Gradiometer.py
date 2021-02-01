@@ -170,10 +170,8 @@ class Gradiometer:
                 timeStamp = datetime.now()
                 time = (timeStamp-startTime).total_seconds()
                 position = self.pos
-                t = timer.time()
                 [x1,y1,z1],[dx1,dy1,dz1] = self.fg1.sample(samples_per_pos)
                 [x2,y2,z2],[dx2,dy2,dz2] = self.fg2.sample(samples_per_pos)
-                print('sample:', timer.time()-t)
                 t = timer.time()
                 print('measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(self.pos,x1,y1,z1,x2,y2,z2))
                 writer.writerow({'timestamp':timeStamp,'time':time,
@@ -183,16 +181,10 @@ class Gradiometer:
                                  'dx1':dx1,'dy1':dy1,'dz1':dz1,
                                  'dx2':dx2,'dy2':dy2,'dz2':dz2})
 
-                t = timer.time()
                 if mes_callback:
                     mes_callback([x1,y1,z1], [x2,y2,z2], [dx1,dy1,dz1], [dx2,dy2,dz2])
-                print('callback:', timer.time()-t)
-                t = timer.time()
 
-                t = timer.time()
                 self.oneStep(direction)
-                print('step:', timer.time()-t)
-                t = timer.time()
             print('finished at {}cm'.format(self.pos))
         except KeyboardInterrupt:
             print('run stopped at {}cm'.format(self.pos))

@@ -12,6 +12,7 @@ import atexit
 import time
 import json
 import sys
+import numpy as np
 remoteDev = False
 
 if not remoteDev:
@@ -254,6 +255,7 @@ class RunWindow(QMainWindow):
         self.repeatsEntry.setValue(1)
         self.settingsLayout.addRow("Number of times to repeat measurement:", self.repeatsEntry)
 
+        # UI entry boxes
         if self.mode == self.RunModes.pos:
             self.startEntry = QDoubleSpinBox()
             self.stopEntry = QDoubleSpinBox()
@@ -306,10 +308,12 @@ class RunWindow(QMainWindow):
         self.axes = []
         self.xdata = []
         self.ydata = []
+        self.error = []
         self.plotRefs = []
         for i in range(3):
             self.xdata.append([])
             self.ydata.append([])
+            self.error.append([])
             self.axes.append(fig.add_subplot(3, 1, i+1))
             self.axes[i].set_xlabel(
                 "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)")
@@ -354,6 +358,7 @@ class RunWindow(QMainWindow):
         for i in range(3):
             self.xdata[i] = []
             self.ydata[i] = []
+            self.error[i] = []
         self.initGraph = True
         self.runNum += 1
 
@@ -368,11 +373,8 @@ class RunWindow(QMainWindow):
             self.setupRun()
             runCallback(i)
             time.sleep(1)
-
-    def updateData(self, pos1, pos2, std1, std2):
-        """Updates data, to be called from gradThread
-
-        Args (All in (x, y, ) format):
+    def updateData(self, pos1, pos2, std1, std2): 
+        """Updates data, to be called from gradThread Args (All in (x, y, ) format):
             pos1 (List[Float]): List of magnetic fields at position 1
             pos2 (List[Float]): List of magnetic fields at position 2
             std1 (List[Float]): List of standard deviations for pos 1
@@ -380,6 +382,7 @@ class RunWindow(QMainWindow):
         """
         for i in range(3):
             self.ydata[i].append(pos1[i])
+            self.error[i].append(std1[i])
             if self.mode == self.RunModes.pos:
                 self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
             elif self.mode == self.RunModes.time:
@@ -393,11 +396,12 @@ class RunWindow(QMainWindow):
             if len(self.xdata[i]) == 0:
                 return
             if self.initGraph == True:
-                self.plotRefs[i] = self.axes[i].plot(
-                    self.xdata[i], self.ydata[i], 'o', label="Run {}".format(self.runNum))
+                self.plotRefs[i] = self.axes[i].errorbar(
+                    self.xdata[i], self.ydata[i], self.error[i], fmt='o', label="Run {}".format(self.runNum))
                 self.axes[i].legend()
             else:
-                self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
+                # self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
+                update_errorbar(self.plotRefs[i], np.array(self.xdata[i]), np.array(self.ydata[i]), yerr=np.array(self.error[i]))
                 self.axes[i].relim()
                 self.axes[i].autoscale_view(scalex=False)
         if not self.gradThread.is_alive():
@@ -421,6 +425,65 @@ class RunWindow(QMainWindow):
             return 0
         elif i == 2:
             return -1.5
+
+
+# Taken from and explained here: 
+# https://github.com/matplotlib/matplotlib/issues/4556
+def update_errorbar(errobj, x, y, xerr=None, yerr=None):
+    ln, caps, bars = errobj
+
+
+    if len(bars) == 2:
+        assert xerr is not None and yerr is not None, "Your errorbar object has 2 dimension of error bars defined. You must provide xerr and yerr."
+        barsx, barsy = bars  # bars always exist (?)
+        try:  # caps are optional
+            errx_top, errx_bot, erry_top, erry_bot = caps
+        except ValueError:  # in case there is no caps
+            pass
+
+    elif len(bars) == 1:
+        assert (xerr is     None and yerr is not None) or\
+               (xerr is not None and yerr is     None),  \
+               "Your errorbar object has 1 dimension of error bars defined. You must provide xerr or yerr."
+
+        if xerr is not None:
+            barsx, = bars  # bars always exist (?)
+            try:
+                errx_top, errx_bot = caps
+            except ValueError:  # in case there is no caps
+                pass
+        else:
+            barsy, = bars  # bars always exist (?)
+            try:
+                erry_top, erry_bot = caps
+            except ValueError:  # in case there is no caps
+                pass
+
+    ln.set_data(x,y)
+
+    try:
+        errx_top.set_xdata(x + xerr)
+        errx_bot.set_xdata(x - xerr)
+        errx_top.set_ydata(y)
+        errx_bot.set_ydata(y)
+    except NameError:
+        pass
+    try:
+        barsx.set_segments([np.array([[xt, y], [xb, y]]) for xt, xb, y in zip(x + xerr, x - xerr, y)])
+    except NameError:
+        pass
+
+    try:
+        erry_top.set_xdata(x)
+        erry_bot.set_xdata(x)
+        erry_top.set_ydata(y + yerr)
+        erry_bot.set_ydata(y - yerr)
+    except NameError:
+        pass
+    try:
+        barsy.set_segments([np.array([[x, yt], [x, yb]]) for x, yt, yb in zip(x, y + yerr, y - yerr)])
+    except NameError:
+        pass
 
 
 if __name__ == '__main__':
