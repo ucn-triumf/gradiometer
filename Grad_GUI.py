@@ -339,10 +339,11 @@ class RunWindow(QMainWindow):
         gradCallback = lambda i: self.gradiometer.posRun(
             start if i%2==0 else stop, stop if i%2==0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
         self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
-        for i in range(3):
-            self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
-                start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
-            self.axes[i+3].set_xlim([20, 60])
+        for i in range(6):
+            # self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
+            #     start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
+            # self.axes[i+3].set_xlim([20, 60])
+            self.axes[i].set_xlim([0, 80])
         self.gradThread.start()
 
     def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
@@ -415,7 +416,11 @@ class RunWindow(QMainWindow):
                     except ValueError:
                         pass
 
-                self.axes[i].relim()
+                if self.mode == self.RunModes.pos:
+                    self.axes[i].relim()
+                elif self.mode == self.RunModes.time:
+                    # Apply custom scaling because relim() doesn't take into account error bars
+                    self.axes[i].set_ylim([min(self.ydata[i])-max(self.error[i]), max(self.ydata[i])+max(self.error[i])])
                 self.axes[i].autoscale_view(scalex=False)
         if not self.gradThread.is_alive():
             self.operateButton.setEnabled(True)
