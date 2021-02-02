@@ -216,6 +216,12 @@ class RunWindow(QMainWindow):
     gradiometer = None
     runNum = 0
 
+    # Start and stop of shield in centimeters
+    SHIELDSTART = 20
+    SHIELDSTOP = 60
+    # Frequency with which to graph
+    GRAPHFREQ = 4
+
     class RunModes():
         """Enum for run modes"""
         pos = 1
@@ -307,29 +313,37 @@ class RunWindow(QMainWindow):
         self.graph = FigureCanvasQTAgg(fig)
         self.axes = []
         self.xdata = []
+        # Data for moving magnetometer
         self.ydata = []
+        # Data for constant magnetometer
+        self.ydataPos2 = []
         self.error = []
+        self.errorPos2 = []
         self.plotRefs = []
+        self.plotRefsPos2 = []
 
         self.numPlots = 6 if self.mode == self.RunModes.pos else 3
 
         for i in range(self.numPlots):
             self.xdata.append([])
             self.ydata.append([])
+            self.ydataPos2.append([])
             self.error.append([])
+            self.errorPos2.append([])
             self.axes.append(fig.add_subplot(self.numPlots, 1, i+1))
             self.axes[i].set_xlabel(
                 "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)")
-            self.axes[i].set_ylabel("B{}".format(
+            self.axes[i].set_ylabel("B{} (uT)".format(
                 "x" if i%3 == 0 else ("y" if i%3 == 1 else "z")))
             self.plotRefs.append(None)
+            self.plotRefsPos2.append(None)
 
         self.toolbar = NavigationToolbar(self.graph, self)
         self.graphLayout.addWidget(self.toolbar)
         self.graphLayout.addWidget(self.graph)
 
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(2000)
+        self.timer.setInterval(self.GRAPHFREQ * 1000)
         self.timer.timeout.connect(self.updateGraph)
         self.timer.start()
 
@@ -363,7 +377,9 @@ class RunWindow(QMainWindow):
         for i in range(3):
             self.xdata[i] = []
             self.ydata[i] = []
+            self.ydataPos2[i] = []
             self.error[i] = []
+            self.errorPos2[i] = []
         self.initGraph = True
         self.runNum += 1
 
@@ -385,11 +401,16 @@ class RunWindow(QMainWindow):
             std1 (List[Float]): List of standard deviations for pos 1
             std2 (List[Float]): List of standard deviations for pos 1
         """
+        # Conversion factor
+        uTPerVolt = 10
         for i in range(3):
-            self.ydata[i].append(pos1[i])
-            self.error[i].append(std1[i])
+            self.ydata[i].append(uTPerVolt*pos1[i])
+            self.error[i].append(uTPerVolt*std1[i])
             if self.mode == self.RunModes.pos:
                 self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
+                index = 2 if i==0 else (0 if i == 2 else i)
+                self.ydataPos2[i].append(-uTPerVolt*pos2[index])
+                self.errorPos2[i].append(uTPerVolt*std2[index])
             elif self.mode == self.RunModes.time:
                 if len(self.xdata[i]) == 0 and self.initGraph:
                     self.startTime = time.time()
@@ -403,15 +424,20 @@ class RunWindow(QMainWindow):
             if self.initGraph == True:
                 self.plotRefs[i] = self.axes[i].errorbar(
                     self.xdata[i%3], self.ydata[i%3], self.error[i%3], fmt='o', label="Run {}".format(self.runNum))
+                if self.mode == self.RunModes.pos and i < 3:
+                    self.plotRefsPos2[i] = self.axes[i].errorbar(
+                        self.xdata[i%3], self.ydataPos2[i%3], self.errorPos2[i%3], fmt='o', label="Reference Run {}".format(self.runNum))
                 self.axes[i].legend()
             else:
                 # self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
                 if i < 3:
                     update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3]), np.array(self.ydata[i%3]), yerr=np.array(self.error[i%3]))
+                    if self.mode == self.RunModes.pos:
+                        update_errorbar(self.plotRefsPos2[i], np.array(self.xdata[i%3]), np.array(self.ydataPos2[i%3]), yerr=np.array(self.errorPos2[i%3]))
                 else:
                     try: 
-                        lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > 20)
-                        upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < 60)
+                        lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > self.SHIELDSTART)
+                        upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < self.SHIELDSTOP)
                         update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3][lower:upper]), np.array(self.ydata[i%3][lower:upper]), yerr=np.array(self.error[i%3][lower:upper]))
                     except ValueError:
                         pass
