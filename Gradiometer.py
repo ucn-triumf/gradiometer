@@ -1,5 +1,3 @@
-#GRADIOMETER
-
 import sys
 import traceback
 import atexit
@@ -12,8 +10,8 @@ import json
 from datetime import datetime
 import time as timer
 
+# Hardware includes
 import u6
-
 from Motor import Motor
 from Fluxgate import Fluxgate
 
