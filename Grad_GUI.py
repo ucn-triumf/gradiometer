@@ -229,6 +229,8 @@ class RunWindow(QMainWindow):
     # Run number currently on
     runNum = 0
 
+    datamutex = threading.Lock()
+
     # Start and stop of shield in centimeters
     SHIELDSTART = 20
     SHIELDSTOP = 60
@@ -444,61 +446,69 @@ class RunWindow(QMainWindow):
             std1 (List[Float]): List of standard deviations for pos 1
             std2 (List[Float]): List of standard deviations for pos 1
         """
-        # Conversion factor given in user manual
-        uTPerVolt = 10
-        for i in range(3):
-            # y and error are the same between modes
-            self.ydata[i].append(uTPerVolt*pos1[i])
-            self.error[i].append(uTPerVolt*std1[i])
-            if self.mode == self.RunModes.pos:
-                self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
-                # Since pos2 has rotated axes a shifting must be done
-                index = 2 if i==0 else (0 if i == 2 else 1)
-                self.ydataPos2[i].append(-uTPerVolt*pos2[index])
-                self.errorPos2[i].append(uTPerVolt*std2[index])
-            elif self.mode == self.RunModes.time:
-                # Reset start time
-                # This is done here because this is the actual beginning of the data
-                if len(self.xdata[i]) == 0 and self.initGraph:
-                    self.startTime = time.time()
-                self.xdata[i].append(time.time()-self.startTime)
+        self.datamutex.acquire()
+        try: 
+            # Conversion factor given in user manual
+            uTPerVolt = 10
+            for i in range(3):
+                # y and error are the same between modes
+                self.ydata[i].append(uTPerVolt*pos1[i])
+                self.error[i].append(uTPerVolt*std1[i])
+                if self.mode == self.RunModes.pos:
+                    self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
+                    # Since pos2 has rotated axes a shifting must be done
+                    index = 2 if i==0 else (0 if i == 2 else 1)
+                    self.ydataPos2[i].append(-uTPerVolt*pos2[index])
+                    self.errorPos2[i].append(uTPerVolt*std2[index])
+                elif self.mode == self.RunModes.time:
+                    # Reset start time
+                    # This is done here because this is the actual beginning of the data
+                    if len(self.xdata[i]) == 0 and self.initGraph:
+                        self.startTime = time.time()
+                    self.xdata[i].append(time.time()-self.startTime)
+        finally:
+            self.datamutex.release()
 
     def updateGraph(self):
         """Updates graphs periodically"""
-        for i in range(self.numPlots):
-            if len(self.xdata[i%3]) == 0:
-                return
-            # If graphs haven't been initialized do that now
-            # Not done before because there was no data when initialized
-            if self.initGraph == True:
-                self.plotRefs[i] = self.axes[i].errorbar(
-                    self.xdata[i%3], self.ydata[i%3], self.error[i%3], fmt='o', label="Run {}".format(self.runNum))
-                if self.mode == self.RunModes.pos and i < 3:
-                    self.plotRefsPos2[i] = self.axes[i].errorbar(
-                        self.xdata[i%3], self.ydataPos2[i%3], self.errorPos2[i%3], fmt='o', label="Reference Run {}".format(self.runNum))
-                self.axes[i].legend()
-            else:
-                # Because Matplotlib doesn't support error bar updating we have to do it manually with a custom function
-                if i < 3:
-                    update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3]), np.array(self.ydata[i%3]), yerr=np.array(self.error[i%3]))
-                    if self.mode == self.RunModes.pos:
-                        update_errorbar(self.plotRefsPos2[i], np.array(self.xdata[i%3]), np.array(self.ydataPos2[i%3]), yerr=np.array(self.errorPos2[i%3]))
+        self.datamutex.acquire()
+        try: 
+            for i in range(self.numPlots):
+                if len(self.xdata[i%3]) == 0:
+                    return
+                # If graphs haven't been initialized do that now
+                # Not done before because there was no data when initialized
+                if self.initGraph == True:
+                    self.plotRefs[i] = self.axes[i].errorbar(
+                        self.xdata[i%3], self.ydata[i%3], self.error[i%3], fmt='o', label="Run {}".format(self.runNum))
+                    if self.mode == self.RunModes.pos and i < 3:
+                        self.plotRefsPos2[i] = self.axes[i].errorbar(
+                            self.xdata[i%3], self.ydataPos2[i%3], self.errorPos2[i%3], fmt='o', label="Reference Run {}".format(self.runNum))
+                    self.axes[i].legend()
                 else:
-                    try: 
-                        # Restrict data to within a range
-                        lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > self.SHIELDSTART)
-                        upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < self.SHIELDSTOP)
-                        update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3][lower:upper]), np.array(self.ydata[i%3][lower:upper]), yerr=np.array(self.error[i%3][lower:upper]))
-                    # If no data to take max/min of that's fine, just pass and don't update
-                    except ValueError:
-                        pass
+                    # Because Matplotlib doesn't support error bar updating we have to do it manually with a custom function
+                    if i < 3:
+                        update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3]), np.array(self.ydata[i%3]), yerr=np.array(self.error[i%3]))
+                        if self.mode == self.RunModes.pos:
+                            update_errorbar(self.plotRefsPos2[i], np.array(self.xdata[i%3]), np.array(self.ydataPos2[i%3]), yerr=np.array(self.errorPos2[i%3]))
+                    else:
+                        try: 
+                            # Restrict data to within a range
+                            lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > self.SHIELDSTART)
+                            upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < self.SHIELDSTOP)
+                            update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3][lower:upper]), np.array(self.ydata[i%3][lower:upper]), yerr=np.array(self.error[i%3][lower:upper]))
+                        # If no data to take max/min of that's fine, just pass and don't update
+                        except ValueError:
+                            pass
 
-                if self.mode == self.RunModes.pos:
-                    self.axes[i].relim()
-                elif self.mode == self.RunModes.time:
-                    # Apply custom scaling because relim() doesn't take into account error bars which is a pain
-                    self.axes[i].set_ylim([min(self.ydata[i])-max(self.error[i]), max(self.ydata[i])+max(self.error[i])])
-                self.axes[i].autoscale_view(scalex=False)
+                    if self.mode == self.RunModes.pos:
+                        self.axes[i].relim()
+                    elif self.mode == self.RunModes.time:
+                        # Apply custom scaling because relim() doesn't take into account error bars which is a pain
+                        self.axes[i].set_ylim([min(self.ydata[i])-max(self.error[i]), max(self.ydata[i])+max(self.error[i])])
+                    self.axes[i].autoscale_view(scalex=False)
+        finally:
+            self.datamutex.release()
 
         # Rest button if allowed
         if not self.gradThread.is_alive():
