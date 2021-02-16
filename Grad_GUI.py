@@ -256,7 +256,7 @@ class RunWindow(QMainWindow):
         """
         super().__init__(parent)
         self.mode = mode
-        self.setWindowTitle('Gradiometer Position Run')
+        self.setWindowTitle('Gradiometer {} Run'.format('Position' if self.mode == self.RunModes.pos else 'Time'))
 
         # Sets up general layout
         self.generalLayout = QHBoxLayout()
