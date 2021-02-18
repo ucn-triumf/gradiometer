@@ -1,5 +1,8 @@
-# This is for remote development. If true it will be able to be used without physical access to the gradiometer
-# Note this is only for testing, if this is set to true the GUI will not be functional
+"""
+This is a GUI wrapper for the existing gradiometer functionality implemented in Gradiometer.py
+It is based on pyqt, and have functionality for calibration, time runs and position runs
+"""
+
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 import matplotlib
@@ -14,11 +17,15 @@ import time
 import json
 import sys
 import numpy as np
+
+# This is for remote development. If true it will be able to be used without physical access to the gradiometer
+# Note this is only for testing, if this is set to true the GUI will not be functional
 remoteDev = False
 
 if not remoteDev:
     from Gradiometer import Gradiometer
 
+# Enables matplotlib with pyqt
 matplotlib.use('Qt5Agg')
 
 
@@ -119,6 +126,7 @@ class CalibrationWindow(QMainWindow):
         self._centralWidget = QWidget(self)
         self.setCentralWidget(self._centralWidget)
         self._centralWidget.setLayout(self.generalLayout)
+        # Since window isn't maximized have to set margins or else becomes too small
         self.generalLayout.setContentsMargins(50, 50, 50, 50)
         self.layoutInstructions()
 
@@ -144,9 +152,6 @@ class CalibrationWindow(QMainWindow):
 
     def layoutMeasurement(self):
         """Lays out UI for taking measurement, to be called after layoutInstructions"""
-        # Clears layout
-        # for i in reversed(range(self.generalLayout.count())):
-        #     self.generalLayout.itemAt(i).widget().setParent(None)
         self.finishButton.setParent(None)
         self.intro.setText(
             "<p>We will now take the calibration measurement</p>")
@@ -159,11 +164,14 @@ class CalibrationWindow(QMainWindow):
             self.gradiometer.zero()
 
         def goToThread():
+            """Helper function that wraps gradiometer running
+            """
             if not remoteDev:
                 self.steps = self.gradiometer.goTo(self.calDist)
             else:
                 self.steps = 700
 
+        # Start physical movement thread
         thread = threading.Thread(target=goToThread)
         thread.start()
 
@@ -172,6 +180,8 @@ class CalibrationWindow(QMainWindow):
         self.generalLayout.addWidget(self.distance)
 
         def nextScreen():
+            """Helper function that wraps calling both calibrate and layout confirmation at once
+            """
             if not thread.is_alive():
                 self.calibrate(self.distance.value(), self.steps)
                 self.layoutConfirmation()
@@ -213,9 +223,23 @@ class CalibrationWindow(QMainWindow):
 class RunWindow(QMainWindow):
     """Main class for position runs"""
 
+    # Keeps track of if graph has been initialized
     initGraph = False
+    # Gradiometer object
     gradiometer = None
+    # Run number currently on
     runNum = 0
+
+    datamutex = threading.Lock()
+
+    # Start and stop of shield in centimeters
+    SHIELDSTART = 20
+    SHIELDSTOP = 60
+    # Between two points to graph
+    MINGRAPH = 0
+    MAXGRAPH = 80
+    # Frequency with which to graph
+    GRAPHFREQ = 4
 
     class RunModes():
         """Enum for run modes"""
@@ -233,20 +257,21 @@ class RunWindow(QMainWindow):
         """
         super().__init__(parent)
         self.mode = mode
-        self.setWindowTitle('Gradiometer Position Run')
+        self.setWindowTitle('Gradiometer {} Run'.format('Position' if self.mode == self.RunModes.pos else 'Time'))
 
-        # self.setFixedSize(1000, 800)
+        # Sets up general layout
         self.generalLayout = QHBoxLayout()
         self._centralWidget = QWidget(self)
         self.setCentralWidget(self._centralWidget)
         self._centralWidget.setLayout(self.generalLayout)
 
+        # Configuration panel on left third of screen
         self.configLayout = QVBoxLayout()
         self.generalLayout.addLayout(self.configLayout, 33)
 
+        # Configuration entries
         self.settingsLayout = QFormLayout()
         self.tagEntry = QLineEdit()
-        # if remoteDev:
         # TEMP: Remove before final version of GUI
         self.tagEntry.setText('GUITest')
         self.settingsLayout.addRow(
@@ -257,12 +282,13 @@ class RunWindow(QMainWindow):
         self.settingsLayout.addRow(
             "Number of times to repeat measurement:", self.repeatsEntry)
 
-        # UI entry boxes
+        # UI entry boxes specific to the different modes
         if self.mode == self.RunModes.pos:
             self.startEntry = QDoubleSpinBox()
             self.stopEntry = QDoubleSpinBox()
             self.startEntry.setValue(0)
             self.stopEntry.setValue(10)
+
             self.samplesPerPosEntry = QSpinBox()
             self.samplesPerPosEntry.setValue(5)
 
@@ -273,15 +299,17 @@ class RunWindow(QMainWindow):
         elif self.mode == self.RunModes.time:
             self.secEntry = QSpinBox()
             self.secEntry.setValue(5)
+
             self.scanFreqEntry = QSpinBox()
             self.scanFreqEntry.setMaximum(5000)
             self.scanFreqEntry.setValue(500)
-            self.changePosEntry = QCheckBox()
-            self.cmEntry = QDoubleSpinBox()
 
-            self.cmEntry.setEnabled(False)
+            self.changePosEntry = QCheckBox()
             self.changePosEntry.toggled.connect(
                 lambda: self.cmEntry.setEnabled(self.changePosEntry.isChecked()))
+
+            self.cmEntry = QDoubleSpinBox()
+            self.cmEntry.setEnabled(False)
 
             self.settingsLayout.addRow('Time to scan (s):', self.secEntry)
             self.settingsLayout.addRow(
@@ -294,6 +322,7 @@ class RunWindow(QMainWindow):
         self.configLayout.addLayout(self.settingsLayout)
 
         self.operateButton = QPushButton("Start Run")
+        # Different functionality for start button depending on mode
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(
             ), self.stopEntry.value(), self.tagEntry.text(), self.samplesPerPosEntry.value(), self.repeatsEntry.value()))
@@ -302,22 +331,36 @@ class RunWindow(QMainWindow):
             ), self.scanFreqEntry.value(), None if not self.changePosEntry.isChecked() else self.cmEntry.value(), self.repeatsEntry.value()))
         self.configLayout.addWidget(self.operateButton)
 
+        # Initializes graphs
         self.graphLayout = QVBoxLayout()
         self.generalLayout.addLayout(self.graphLayout, 66)
 
         self.xdata = []
+        # Data for moving magnetometer
+        # Might want to rename this to ydataPos1 to differentiate it from ydataPos2
         self.ydata = []
+        # Data for constant magnetometer
+        self.ydataPos2 = []
+        # Error bars for data sets defined above
         self.error = []
+        self.errorPos2 = []
+        # References to each of the error bar plots
+        # Note that plots are not the same as graphs: each set of data will have its own plot reference
         self.plotRefs = []
         self.plotDataRefs = []
+        self.plotDataRefsPos2 = []
 
+        # If in position mode should have additional plots for zoomed in version
         self.numPlots = 6 if self.mode == self.RunModes.pos else 3
 
         for i in range(self.numPlots):
+            # Initialize empty arrays
             self.xdata.append([])
             self.ydata.append([])
+            self.ydataPos2.append([])
             self.error.append([])
             self.plotDataRefs.append([])
+            self.plotDataRefsPos2.append([])
 
             plotWidget = pg.PlotWidget(labels={'bottom': "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)", 'left': "x" if i % 3 == 0 else ("y" if i % 3 == 1 else "z")})
             plotWidget.setBackground('w')
@@ -333,37 +376,48 @@ class RunWindow(QMainWindow):
 
     def startPosRun(self, start, stop, tag, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
+        # Disable operation button so two runs don't get started at once
         self.operateButton.setEnabled(False)
-        def gradCallback(i): return self.gradiometer.posRun(
-            start if i % 2 == 0 else stop, stop if i % 2 == 0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
-        self.gradThread=threading.Thread(
-            target=lambda: self.repeatRun(repeats, gradCallback))
-        for i in range(3):
-            self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
-                start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
-            self.axes[i+3].set_xlim([20, 60])
+        # Nest callback is kind of confusing, there's probably an easier way to do things
+        # Basically gradCallback is called every time a measurement is made, while a lambda that uses this callback is given to the thread to run
+        gradCallback = lambda i: self.gradiometer.posRun(
+            start if i%2==0 else stop, stop if i%2==0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
+        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
+        for i in range(6):
+            # Right now I'm just settting the axis in a hardcoded way to get them to line up as per Beatrice's request, but if dynamic spacing is required this should work: 
+            # self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
+            #     start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
+            # self.axes[i+3].set_xlim([20, 60])
+            self.axes[i].set_xlim([self.MINGRAPH, self.MAXGRAPH])
         self.gradThread.start()
 
     def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
         """Starts time run. Arguments are same as in Gradiometer.timeRun"""
         self.operateButton.setEnabled(False)
-        def gradCallback(i): return self.gradiometer.timeRun(
+        # See startPosRun for what nest lambda does
+        gradCallback = lambda i: self.gradiometer.timeRun(
             sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData)
-        self.gradThread=threading.Thread(
-            target=lambda: self.repeatRun(repeats, gradCallback))
+        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
+        # Initializes axes to show maximum range any data series currently uses to avoid cutting any off
         for i in range(3):
             self.axes[i].set_xlim([0, max(self.axes[i].get_ylim()[1], sec)+1])
         self.gradThread.start()
 
     def setupRun(self):
         """Sets up shared run settings for pos and time runs"""
+        # Initialize shared gradiometer if not already done
         if not self.gradiometer:
             self.gradiometer=initGrad()
         for i in range(3):
             self.xdata[i]=[]
             self.ydata[i]=[]
+            self.ydataPos2[i] = []
             self.error[i]=[]
-            self.plotDataRefs = self.plotRefs.plot(self.xdata[i], self.ydata[i])
+            self.errorPos2[i] = []
+            self.plotDataRefs[i] = self.plotRefs.plot[i](self.xdata[i], self.ydata[i])
+            if self.mode == self.Modes.pos:
+                self.plotDataRefs[i+3] = self.plotRefs[i+3].plot(self.xdata[i], self.ydata[i])
+            self.plotDataRefsPos2[i] = self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i])
         self.runNum += 1
 
     def repeatRun(self, repeats, runCallback):
@@ -376,46 +430,68 @@ class RunWindow(QMainWindow):
         for i in range(repeats):
             self.setupRun()
             runCallback(i)
+            # Not strictly necessary, just put it in to physically be able to differentiate runs
             time.sleep(1)
 
-    def updateData(self, pos1, pos2, std1, std2):
+    def updateData(self, pos1, pos2, std1, std2): 
         """Updates data, to be called from gradThread Args (All in (x, y, ) format):
             pos1 (List[Float]): List of magnetic fields at position 1
             pos2 (List[Float]): List of magnetic fields at position 2
             std1 (List[Float]): List of standard deviations for pos 1
             std2 (List[Float]): List of standard deviations for pos 1
         """
-        for i in range(3):
-            self.ydata[i].append(pos1[i])
-            self.error[i].append(std1[i])
-            if self.mode == self.RunModes.pos:
-                self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
-            elif self.mode == self.RunModes.time:
-                if len(self.xdata[i]) == 0 and self.initGraph:
-                    self.startTime=time.time()
-                self.xdata[i].append(time.time()-self.startTime)
+        self.datamutex.acquire()
+        try: 
+            # Conversion factor given in user manual
+            uTPerVolt = 10
+            for i in range(3):
+                # y and error are the same between modes
+                self.ydata[i].append(uTPerVolt*pos1[i])
+                self.error[i].append(uTPerVolt*std1[i])
+                if self.mode == self.RunModes.pos:
+                    self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
+                    # Since pos2 has rotated axes a shifting must be done
+                    index = 2 if i==0 else (0 if i == 2 else 1)
+                    self.ydataPos2[i].append(-uTPerVolt*pos2[index])
+                    self.errorPos2[i].append(uTPerVolt*std2[index])
+                elif self.mode == self.RunModes.time:
+                    # Reset start time
+                    # This is done here because this is the actual beginning of the data
+                    if len(self.xdata[i]) == 0 and self.initGraph:
+                        self.startTime = time.time()
+                    self.xdata[i].append(time.time()-self.startTime)
+        finally:
+            self.datamutex.release()
 
     def updateGraph(self):
         """Updates graphs periodically"""
+        self.datamutex.acquire()
+        try: 
+            for i in range(self.numPlots):
+                try:
+                    if i < 3:
+                        self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
+                        if self.mode == self.Modes.pos:
+                            self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
+                    else:
+                        lower=min(i for i, x in enumerate(
+                            self.xdata[i % 3]) if x > 30)
+                        upper=max(i for i, x in enumerate(
+                            self.xdata[i % 3]) if x < 50)
+                        self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
+                except (IndexError, ValueError) as e:
+                    pass
+        finally:
+            self.datamutex.release()
 
-        for i in range(self.numPlots):
-            try:
-                if i < 3:
-                    self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
-                else:
-                    lower=min(i for i, x in enumerate(
-                        self.xdata[i % 3]) if x > 30)
-                    upper=max(i for i, x in enumerate(
-                        self.xdata[i % 3]) if x < 50)
-                    self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
-            except (KeyError, ValueError) as e:
-                pass
-
-        if not self.gradThread.is_alive():
-            self.operateButton.setEnabled(True)
+        try: 
+            if not self.gradThread.is_alive():
+                self.operateButton.setEnabled(True)
+        except:
+            pass
 
     def getOffset(self, i):
-        """Get's offset of magnetometer
+        """Get's offset of magnetometer inherent in instrument
 
         Args:
             i (int): axis, 1=x, 2=y, 3=z
@@ -431,7 +507,8 @@ class RunWindow(QMainWindow):
             return -1.5
 
 
-# Taken from and explained here:
+# Updates error bar plot analogously for set_ydata for regular plots except with error bars
+# Taken from and explained here: 
 # https://github.com/matplotlib/matplotlib/issues/4556
 def update_errorbar(errobj, x, y, xerr=None, yerr=None):
     ln, caps, bars=errobj
@@ -491,6 +568,7 @@ def update_errorbar(errobj, x, y, xerr=None, yerr=None):
         pass
 
 
+# Main entry point
 if __name__ == '__main__':
     app=QApplication(sys.argv)
     dlg=TaskSelectDialog()
