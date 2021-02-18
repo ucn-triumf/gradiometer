@@ -7,6 +7,7 @@ import PyQt5.QtCore as QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+import pyqtgraph as pg
 import threading
 import atexit
 import time
@@ -106,7 +107,7 @@ class CalibrationWindow(QMainWindow):
     calDist = 80
 
     def __init__(self, parent=None):
-        """Initializes calibration windows. 
+        """Initializes calibration windows.
 
         Args:
             parent: parent element for QT. Defaults to None.
@@ -253,7 +254,8 @@ class RunWindow(QMainWindow):
 
         self.repeatsEntry = QSpinBox()
         self.repeatsEntry.setValue(1)
-        self.settingsLayout.addRow("Number of times to repeat measurement:", self.repeatsEntry)
+        self.settingsLayout.addRow(
+            "Number of times to repeat measurement:", self.repeatsEntry)
 
         # UI entry boxes
         if self.mode == self.RunModes.pos:
@@ -303,13 +305,11 @@ class RunWindow(QMainWindow):
         self.graphLayout = QVBoxLayout()
         self.generalLayout.addLayout(self.graphLayout, 66)
 
-        fig = Figure(dpi=100)
-        self.graph = FigureCanvasQTAgg(fig)
-        self.axes = []
         self.xdata = []
         self.ydata = []
         self.error = []
         self.plotRefs = []
+        self.plotDataRefs = []
 
         self.numPlots = 6 if self.mode == self.RunModes.pos else 3
 
@@ -317,18 +317,16 @@ class RunWindow(QMainWindow):
             self.xdata.append([])
             self.ydata.append([])
             self.error.append([])
-            self.axes.append(fig.add_subplot(self.numPlots, 1, i+1))
-            self.axes[i].set_xlabel(
-                "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)")
-            self.axes[i].set_ylabel("B{}".format(
-                "x" if i%3 == 0 else ("y" if i%3 == 1 else "z")))
-            self.plotRefs.append(None)
+            self.plotDataRefs.append([])
 
-        self.toolbar = NavigationToolbar(self.graph, self)
-        self.graphLayout.addWidget(self.toolbar)
-        self.graphLayout.addWidget(self.graph)
+            plotWidget = pg.PlotWidget(labels={'bottom': "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)", 'left': "x" if i % 3 == 0 else ("y" if i % 3 == 1 else "z")})
+            plotWidget.setBackground('w')
 
-        self.timer = QtCore.QTimer()
+            self.plotRefs.append(plotWidget.getPlotItem())
+            self.graphLayout.addWidget(plotWidget)
+
+
+        self.timer=QtCore.QTimer()
         self.timer.setInterval(2000)
         self.timer.timeout.connect(self.updateGraph)
         self.timer.start()
@@ -336,9 +334,10 @@ class RunWindow(QMainWindow):
     def startPosRun(self, start, stop, tag, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
         self.operateButton.setEnabled(False)
-        gradCallback = lambda i: self.gradiometer.posRun(
-            start if i%2==0 else stop, stop if i%2==0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
-        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
+        def gradCallback(i): return self.gradiometer.posRun(
+            start if i % 2 == 0 else stop, stop if i % 2 == 0 else start, tag, graph=False, samples_per_pos=samplesPerPos, mes_callback=self.updateData)
+        self.gradThread=threading.Thread(
+            target=lambda: self.repeatRun(repeats, gradCallback))
         for i in range(3):
             self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
                 start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
@@ -348,9 +347,10 @@ class RunWindow(QMainWindow):
     def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
         """Starts time run. Arguments are same as in Gradiometer.timeRun"""
         self.operateButton.setEnabled(False)
-        gradCallback = lambda i: self.gradiometer.timeRun(
+        def gradCallback(i): return self.gradiometer.timeRun(
             sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData)
-        self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
+        self.gradThread=threading.Thread(
+            target=lambda: self.repeatRun(repeats, gradCallback))
         for i in range(3):
             self.axes[i].set_xlim([0, max(self.axes[i].get_ylim()[1], sec)+1])
         self.gradThread.start()
@@ -358,12 +358,12 @@ class RunWindow(QMainWindow):
     def setupRun(self):
         """Sets up shared run settings for pos and time runs"""
         if not self.gradiometer:
-            self.gradiometer = initGrad()
+            self.gradiometer=initGrad()
         for i in range(3):
-            self.xdata[i] = []
-            self.ydata[i] = []
-            self.error[i] = []
-        self.initGraph = True
+            self.xdata[i]=[]
+            self.ydata[i]=[]
+            self.error[i]=[]
+            self.plotDataRefs = self.plotRefs.plot(self.xdata[i], self.ydata[i])
         self.runNum += 1
 
     def repeatRun(self, repeats, runCallback):
@@ -377,7 +377,8 @@ class RunWindow(QMainWindow):
             self.setupRun()
             runCallback(i)
             time.sleep(1)
-    def updateData(self, pos1, pos2, std1, std2): 
+
+    def updateData(self, pos1, pos2, std1, std2):
         """Updates data, to be called from gradThread Args (All in (x, y, ) format):
             pos1 (List[Float]): List of magnetic fields at position 1
             pos2 (List[Float]): List of magnetic fields at position 2
@@ -391,37 +392,27 @@ class RunWindow(QMainWindow):
                 self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
             elif self.mode == self.RunModes.time:
                 if len(self.xdata[i]) == 0 and self.initGraph:
-                    self.startTime = time.time()
+                    self.startTime=time.time()
                 self.xdata[i].append(time.time()-self.startTime)
 
     def updateGraph(self):
         """Updates graphs periodically"""
-        for i in range(self.numPlots):
-            if len(self.xdata[i%3]) == 0:
-                return
-            if self.initGraph == True:
-                self.plotRefs[i] = self.axes[i].errorbar(
-                    self.xdata[i%3], self.ydata[i%3], self.error[i%3], fmt='o', label="Run {}".format(self.runNum))
-                self.axes[i].legend()
-            else:
-                # self.plotRefs[i][-1].set_data(self.xdata[i], self.ydata[i])
-                if i < 3:
-                    update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3]), np.array(self.ydata[i%3]), yerr=np.array(self.error[i%3]))
-                else:
-                    try: 
-                        lower = min(i for i, x in enumerate(self.xdata[i%3]) if x > 20)
-                        upper = max(i for i, x in enumerate(self.xdata[i%3]) if x < 60)
-                        update_errorbar(self.plotRefs[i], np.array(self.xdata[i%3][lower:upper]), np.array(self.ydata[i%3][lower:upper]), yerr=np.array(self.error[i%3][lower:upper]))
-                    except ValueError:
-                        pass
 
-                self.axes[i].relim()
-                self.axes[i].autoscale_view(scalex=False)
+        for i in range(self.numPlots):
+            try:
+                if i < 3:
+                    self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
+                else:
+                    lower=min(i for i, x in enumerate(
+                        self.xdata[i % 3]) if x > 30)
+                    upper=max(i for i, x in enumerate(
+                        self.xdata[i % 3]) if x < 50)
+                    self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
+            except (KeyError, ValueError) as e:
+                pass
+
         if not self.gradThread.is_alive():
             self.operateButton.setEnabled(True)
-        if self.initGraph:
-            self.initGraph = False
-        self.graph.draw()
 
     def getOffset(self, i):
         """Get's offset of magnetometer
@@ -440,39 +431,38 @@ class RunWindow(QMainWindow):
             return -1.5
 
 
-# Taken from and explained here: 
+# Taken from and explained here:
 # https://github.com/matplotlib/matplotlib/issues/4556
 def update_errorbar(errobj, x, y, xerr=None, yerr=None):
-    ln, caps, bars = errobj
-
+    ln, caps, bars=errobj
 
     if len(bars) == 2:
         assert xerr is not None and yerr is not None, "Your errorbar object has 2 dimension of error bars defined. You must provide xerr and yerr."
-        barsx, barsy = bars  # bars always exist (?)
+        barsx, barsy=bars  # bars always exist (?)
         try:  # caps are optional
-            errx_top, errx_bot, erry_top, erry_bot = caps
+            errx_top, errx_bot, erry_top, erry_bot=caps
         except ValueError:  # in case there is no caps
             pass
 
     elif len(bars) == 1:
-        assert (xerr is     None and yerr is not None) or\
-               (xerr is not None and yerr is     None),  \
-               "Your errorbar object has 1 dimension of error bars defined. You must provide xerr or yerr."
+        assert (xerr is None and yerr is not None) or\
+               (xerr is not None and yerr is None),  \
+            "Your errorbar object has 1 dimension of error bars defined. You must provide xerr or yerr."
 
         if xerr is not None:
             barsx, = bars  # bars always exist (?)
             try:
-                errx_top, errx_bot = caps
+                errx_top, errx_bot=caps
             except ValueError:  # in case there is no caps
                 pass
         else:
             barsy, = bars  # bars always exist (?)
             try:
-                erry_top, erry_bot = caps
+                erry_top, erry_bot=caps
             except ValueError:  # in case there is no caps
                 pass
 
-    ln.set_data(x,y)
+    ln.set_data(x, y)
 
     try:
         errx_top.set_xdata(x + xerr)
@@ -482,7 +472,8 @@ def update_errorbar(errobj, x, y, xerr=None, yerr=None):
     except NameError:
         pass
     try:
-        barsx.set_segments([np.array([[xt, y], [xb, y]]) for xt, xb, y in zip(x + xerr, x - xerr, y)])
+        barsx.set_segments([np.array([[xt, y], [xb, y]])
+                            for xt, xb, y in zip(x + xerr, x - xerr, y)])
     except NameError:
         pass
 
@@ -494,13 +485,14 @@ def update_errorbar(errobj, x, y, xerr=None, yerr=None):
     except NameError:
         pass
     try:
-        barsy.set_segments([np.array([[x, yt], [x, yb]]) for x, yt, yb in zip(x, y + yerr, y - yerr)])
+        barsy.set_segments([np.array([[x, yt], [x, yb]])
+                            for x, yt, yb in zip(x, y + yerr, y - yerr)])
     except NameError:
         pass
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    dlg = TaskSelectDialog()
+    app=QApplication(sys.argv)
+    dlg=TaskSelectDialog()
     dlg.show()
     sys.exit(app.exec_())
