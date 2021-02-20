@@ -388,7 +388,7 @@ class RunWindow(QMainWindow):
             # self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
             #     start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
             # self.axes[i+3].set_xlim([20, 60])
-            self.axes[i].set_xlim([self.MINGRAPH, self.MAXGRAPH])
+            self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
         self.gradThread.start()
 
     def startTimeRun(self, sec, tag, scanFreq, cm, repeats):
@@ -400,7 +400,7 @@ class RunWindow(QMainWindow):
         self.gradThread = threading.Thread(target=lambda: self.repeatRun(repeats, gradCallback))
         # Initializes axes to show maximum range any data series currently uses to avoid cutting any off
         for i in range(3):
-            self.axes[i].set_xlim([0, max(self.axes[i].get_ylim()[1], sec)+1])
+            self.plotRefs[i].setXRange(0, max(self.plotRefs[i].viewRange()[0][1], sec)+1)
         self.gradThread.start()
 
     def setupRun(self):
@@ -505,68 +505,6 @@ class RunWindow(QMainWindow):
             return 0
         elif i == 2:
             return -1.5
-
-
-# Updates error bar plot analogously for set_ydata for regular plots except with error bars
-# Taken from and explained here: 
-# https://github.com/matplotlib/matplotlib/issues/4556
-def update_errorbar(errobj, x, y, xerr=None, yerr=None):
-    ln, caps, bars=errobj
-
-    if len(bars) == 2:
-        assert xerr is not None and yerr is not None, "Your errorbar object has 2 dimension of error bars defined. You must provide xerr and yerr."
-        barsx, barsy=bars  # bars always exist (?)
-        try:  # caps are optional
-            errx_top, errx_bot, erry_top, erry_bot=caps
-        except ValueError:  # in case there is no caps
-            pass
-
-    elif len(bars) == 1:
-        assert (xerr is None and yerr is not None) or\
-               (xerr is not None and yerr is None),  \
-            "Your errorbar object has 1 dimension of error bars defined. You must provide xerr or yerr."
-
-        if xerr is not None:
-            barsx, = bars  # bars always exist (?)
-            try:
-                errx_top, errx_bot=caps
-            except ValueError:  # in case there is no caps
-                pass
-        else:
-            barsy, = bars  # bars always exist (?)
-            try:
-                erry_top, erry_bot=caps
-            except ValueError:  # in case there is no caps
-                pass
-
-    ln.set_data(x, y)
-
-    try:
-        errx_top.set_xdata(x + xerr)
-        errx_bot.set_xdata(x - xerr)
-        errx_top.set_ydata(y)
-        errx_bot.set_ydata(y)
-    except NameError:
-        pass
-    try:
-        barsx.set_segments([np.array([[xt, y], [xb, y]])
-                            for xt, xb, y in zip(x + xerr, x - xerr, y)])
-    except NameError:
-        pass
-
-    try:
-        erry_top.set_xdata(x)
-        erry_bot.set_xdata(x)
-        erry_top.set_ydata(y + yerr)
-        erry_bot.set_ydata(y - yerr)
-    except NameError:
-        pass
-    try:
-        barsy.set_segments([np.array([[x, yt], [x, yb]])
-                            for x, yt, yb in zip(x, y + yerr, y - yerr)])
-    except NameError:
-        pass
-
 
 # Main entry point
 if __name__ == '__main__':
