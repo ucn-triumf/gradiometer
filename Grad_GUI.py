@@ -239,7 +239,7 @@ class RunWindow(QMainWindow):
     MINGRAPH = 0
     MAXGRAPH = 80
     # Frequency with which to graph
-    GRAPHFREQ = 4
+    GRAPHFREQ = 1
 
     class RunModes():
         """Enum for run modes"""
@@ -349,6 +349,8 @@ class RunWindow(QMainWindow):
         self.plotRefs = []
         self.plotDataRefs = []
         self.plotDataRefsPos2 = []
+        self.errorItems = []
+        self.errorItemsPos2 = []
 
         # If in position mode should have additional plots for zoomed in version
         self.numPlots = 6 if self.mode == self.RunModes.pos else 3
@@ -359,14 +361,22 @@ class RunWindow(QMainWindow):
             self.ydata.append([])
             self.ydataPos2.append([])
             self.error.append([])
+            self.errorPos2.append([])
             self.plotDataRefs.append([])
             self.plotDataRefsPos2.append([])
+            self.errorItems.append([])
+            self.errorItemsPos2.append([])
 
             plotWidget = pg.PlotWidget(labels={'bottom': "Position (cm)" if self.mode == self.RunModes.pos else "Time (s)", 'left': "x" if i % 3 == 0 else ("y" if i % 3 == 1 else "z")})
             plotWidget.setBackground('w')
 
             self.plotRefs.append(plotWidget.getPlotItem())
             self.graphLayout.addWidget(plotWidget)
+
+            vb = self.plotRefs[i].getViewBox()                     
+            vb.setAspectLocked(lock=False)            
+            vb.setAutoVisible(y=1.0)                
+            vb.enableAutoRange(axis='y', enable=True)
 
 
         self.timer=QtCore.QTimer()
@@ -409,15 +419,24 @@ class RunWindow(QMainWindow):
         if not self.gradiometer:
             self.gradiometer=initGrad()
         for i in range(3):
-            self.xdata[i]=[]
-            self.ydata[i]=[]
-            self.ydataPos2[i] = []
-            self.error[i]=[]
-            self.errorPos2[i] = []
-            self.plotDataRefs[i] = self.plotRefs.plot[i](self.xdata[i], self.ydata[i])
-            if self.mode == self.Modes.pos:
-                self.plotDataRefs[i+3] = self.plotRefs[i+3].plot(self.xdata[i], self.ydata[i])
-            self.plotDataRefsPos2[i] = self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i])
+            self.xdata[i]=np.array([])
+            self.ydata[i]=np.array([])
+            self.ydataPos2[i] = np.array([])
+            self.error[i]=np.array([])
+            self.errorPos2[i] = np.array([])
+
+            self.errorItems[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i]))
+            self.plotRefs[i].addItem(self.errorItems[i][-1])
+            self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydata[i], pen=None, symbol='o'))
+
+            if self.mode == self.RunModes.pos:
+                self.errorItem[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i+3]))
+                self.plotRefs[i+3].addItem(self.errorItem[i+3][-1])
+                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydata[i], symbol='o'))
+
+            self.errorItemsPos2[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i]))
+            self.plotRefs[i].addItem(self.errorItemsPos2[i][-1])
+            self.plotDataRefsPos2[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i], symbol='o'))
         self.runNum += 1
 
     def repeatRun(self, repeats, runCallback):
@@ -446,20 +465,18 @@ class RunWindow(QMainWindow):
             uTPerVolt = 10
             for i in range(3):
                 # y and error are the same between modes
-                self.ydata[i].append(uTPerVolt*pos1[i])
-                self.error[i].append(uTPerVolt*std1[i])
+                self.ydata[i] = np.append(self.ydata[i], uTPerVolt*pos1[i])
+                self.error[i] = np.append(self.error[i], uTPerVolt*std1[i])
                 if self.mode == self.RunModes.pos:
-                    self.xdata[i].append(self.gradiometer.pos + self.getOffset(i))
+                    self.xdata[i] = np.append(self.xdata[i], self.gradiometer.pos + self.getOffset(i))
                     # Since pos2 has rotated axes a shifting must be done
                     index = 2 if i==0 else (0 if i == 2 else 1)
-                    self.ydataPos2[i].append(-uTPerVolt*pos2[index])
-                    self.errorPos2[i].append(uTPerVolt*std2[index])
+                    self.ydataPos2[i] = np.append(self.ydataPos2[i], -uTPerVolt*pos2[index])
+                    self.errorPos2[i] = np.append(self.errorPos2[i], uTPerVolt*std2[index])
                 elif self.mode == self.RunModes.time:
-                    # Reset start time
-                    # This is done here because this is the actual beginning of the data
-                    if len(self.xdata[i]) == 0 and self.initGraph:
+                    if len(self.xdata[i]) == 0:
                         self.startTime = time.time()
-                    self.xdata[i].append(time.time()-self.startTime)
+                    self.xdata[i] = np.append(self.xdata[i], time.time()-self.startTime)
         finally:
             self.datamutex.release()
 
@@ -471,7 +488,8 @@ class RunWindow(QMainWindow):
                 try:
                     if i < 3:
                         self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
-                        if self.mode == self.Modes.pos:
+                        self.errorItems[i][-1].setData(x=self.xdata[i], y=self.ydata[i], height=self.error[i])
+                        if self.mode == self.RunModes.pos:
                             self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
                     else:
                         lower=min(i for i, x in enumerate(
@@ -481,14 +499,13 @@ class RunWindow(QMainWindow):
                         self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
                 except (IndexError, ValueError) as e:
                     pass
+            try: 
+                if not self.gradThread.is_alive():
+                    self.operateButton.setEnabled(True)
+            except:
+                pass
         finally:
             self.datamutex.release()
-
-        try: 
-            if not self.gradThread.is_alive():
-                self.operateButton.setEnabled(True)
-        except:
-            pass
 
     def getOffset(self, i):
         """Get's offset of magnetometer inherent in instrument
