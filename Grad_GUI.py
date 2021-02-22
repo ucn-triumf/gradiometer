@@ -424,6 +424,7 @@ class RunWindow(QMainWindow):
             self.ydata[i]=np.array([])
             self.ydataPos2[i] = np.array([])
             self.error[i]=np.array([])
+            self.error[i+3]=np.array([])
             self.errorPos2[i] = np.array([])
 
             self.errorItems[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i]))
