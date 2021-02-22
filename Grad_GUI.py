@@ -373,10 +373,11 @@ class RunWindow(QMainWindow):
             self.plotRefs.append(plotWidget.getPlotItem())
             self.graphLayout.addWidget(plotWidget)
 
-            vb = self.plotRefs[i].getViewBox()                     
-            vb.setAspectLocked(lock=False)            
-            vb.setAutoVisible(y=1.0)                
-            vb.enableAutoRange(axis='y', enable=True)
+            # self.plotRefs[i].enableAutoScale()
+            # vb = self.plotRefs[i].getViewBox()                     
+            # vb.setAspectLocked(lock=False)            
+            # vb.setAutoVisible(y=1.0)                
+            # vb.enableAutoRange(axis='y', enable=True)
 
 
         self.timer=QtCore.QTimer()
@@ -430,9 +431,9 @@ class RunWindow(QMainWindow):
             self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydata[i], pen=None, symbol='o'))
 
             if self.mode == self.RunModes.pos:
-                self.errorItem[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i+3]))
-                self.plotRefs[i+3].addItem(self.errorItem[i+3][-1])
-                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydata[i], symbol='o'))
+                self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.error[i+3]))
+                self.plotRefs[i+3].addItem(self.errorItems[i+3][-1])
+                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydataPos2[i], symbol='o'))
 
             self.errorItemsPos2[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i]))
             self.plotRefs[i].addItem(self.errorItemsPos2[i][-1])
@@ -489,6 +490,8 @@ class RunWindow(QMainWindow):
                     if i < 3:
                         self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
                         self.errorItems[i][-1].setData(x=self.xdata[i], y=self.ydata[i], height=self.error[i])
+                        vb = self.plotRefs[i].getViewBox()                     
+                        vb.autoRange(items=self.plotDataRefs[i])
                         if self.mode == self.RunModes.pos:
                             self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
                     else:
@@ -497,6 +500,9 @@ class RunWindow(QMainWindow):
                         upper=max(i for i, x in enumerate(
                             self.xdata[i % 3]) if x < 50)
                         self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
+                        self.errorItems[i][-1].setData(x=self.xdata[i % 3][lower:upper], y=self.ydata[i % 3][lower:upper], height=self.error[i][lower:upper])
+                        vb = self.plotRefs[i].getViewBox()                     
+                        vb.autoRange(items=self.plotDataRefs[i])
                 except (IndexError, ValueError) as e:
                     pass
             try: 
