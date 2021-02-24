@@ -239,7 +239,7 @@ class RunWindow(QMainWindow):
     MINGRAPH = 0
     MAXGRAPH = 80
     # Frequency with which to graph
-    GRAPHFREQ = 1
+    GRAPHFREQ = 2
 
     class RunModes():
         """Enum for run modes"""
@@ -371,6 +371,8 @@ class RunWindow(QMainWindow):
             plotWidget.setBackground('w')
 
             self.plotRefs.append(plotWidget.getPlotItem())
+            # Causes seg fault for some reason, couldn't figure out why
+            # self.plotRefs[i].addLegend(offset=(30, 30))
             self.graphLayout.addWidget(plotWidget)
 
             # self.plotRefs[i].enableAutoScale()
@@ -424,14 +426,14 @@ class RunWindow(QMainWindow):
             self.ydata[i]=np.array([])
             self.ydataPos2[i] = np.array([])
             self.error[i]=np.array([])
-            self.error[i+3]=np.array([])
             self.errorPos2[i] = np.array([])
 
             self.errorItems[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i]))
             self.plotRefs[i].addItem(self.errorItems[i][-1])
-            self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydata[i], pen=None, symbol='o'))
+            self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydata[i], pen=None, symbol='o', symbolBrush=(self.runNum%5, 5)))
 
             if self.mode == self.RunModes.pos:
+                self.error[i+3]=np.array([])
                 self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.error[i+3]))
                 self.plotRefs[i+3].addItem(self.errorItems[i+3][-1])
                 self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydataPos2[i], symbol='o'))
@@ -488,11 +490,13 @@ class RunWindow(QMainWindow):
         try: 
             for i in range(self.numPlots):
                 try:
+                    vb = self.plotRefs[i].getViewBox()                     
+                    vb.autoRange(items=self.plotDataRefs[i])
+                    if self.mode == self.RunModes.pos:
+                        self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
                     if i < 3:
                         self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
                         self.errorItems[i][-1].setData(x=self.xdata[i], y=self.ydata[i], height=self.error[i])
-                        vb = self.plotRefs[i].getViewBox()                     
-                        vb.autoRange(items=self.plotDataRefs[i])
                         if self.mode == self.RunModes.pos:
                             self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
                     else:
