@@ -239,7 +239,7 @@ class RunWindow(QMainWindow):
     MINGRAPH = 0
     MAXGRAPH = 80
     # Frequency with which to graph
-    GRAPHFREQ = 2
+    GRAPHFREQ = 3
 
     class RunModes():
         """Enum for run modes"""
@@ -436,11 +436,11 @@ class RunWindow(QMainWindow):
                 self.error[i+3]=np.array([])
                 self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.error[i+3]))
                 self.plotRefs[i+3].addItem(self.errorItems[i+3][-1])
-                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydataPos2[i], symbol='o'))
+                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydataPos2[i], symbol='o', symbolBrush=(self.runNum%5, 5)))
 
             self.errorItemsPos2[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i]))
             self.plotRefs[i].addItem(self.errorItemsPos2[i][-1])
-            self.plotDataRefsPos2[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i], symbol='o'))
+            self.plotDataRefsPos2[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i], symbol='o', symbolBrush=(self.runNum%5, 5)))
         self.runNum += 1
 
     def repeatRun(self, repeats, runCallback):
@@ -499,15 +499,14 @@ class RunWindow(QMainWindow):
                         self.errorItems[i][-1].setData(x=self.xdata[i], y=self.ydata[i], height=self.error[i])
                         if self.mode == self.RunModes.pos:
                             self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
+                            self.errorItemsPos2[i][-1].setData(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i])
                     else:
                         lower=min(i for i, x in enumerate(
                             self.xdata[i % 3]) if x > 30)
                         upper=max(i for i, x in enumerate(
                             self.xdata[i % 3]) if x < 50)
                         self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
-                        self.errorItems[i][-1].setData(x=self.xdata[i % 3][lower:upper], y=self.ydata[i % 3][lower:upper], height=self.error[i][lower:upper])
-                        vb = self.plotRefs[i].getViewBox()                     
-                        vb.autoRange(items=self.plotDataRefs[i])
+                        self.errorItems[i][-1].setData(x=self.xdata[i % 3][lower:upper], y=self.ydata[i % 3][lower:upper], height=self.error[i % 3][lower:upper])
                 except (IndexError, ValueError) as e:
                     pass
             try: 
