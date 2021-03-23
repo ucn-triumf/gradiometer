@@ -215,6 +215,8 @@ The calibration mode has instructions embedded in the GUI for what to do, so fol
 
 For the two measurement modes, the functionality of the GUI exactly mirrors that of the original python functions. For information about what all the parameters mean, see the \pyinline{posRun} and \pyinline{timeRun} documentation below in the \hyperref[subsec:CodeBasics]{Code Basics} section. Once all the paramters have been set on the left side of the screen, you can click the begin run button to start live graphing the mapping on the screen. Note that you can take multiple measurements within the same session of the GUI by adjusting parameters and starting another run after the first, and both measurements will be overlayed on each other to give a better understanding of the underlying behaviour of the magnetic field. 
 
+In terms of the development of the GUI itself, the python module pyqt is used. For the graphing, Matplotlib was originally used, but due to performance constraints (it is running on a Rasberry Pi which is obviously not a powerful device by any stretch), the graphing was switched to pyqtgraph. This offers better performance for live graphing which suits the requirements. 
+
 \begin{figure}[h]
 	\centering
 	\includegraphics[scale=0.2]{GUI_calibration}

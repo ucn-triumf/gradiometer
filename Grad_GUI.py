@@ -422,25 +422,25 @@ class RunWindow(QMainWindow):
         if not self.gradiometer:
             self.gradiometer=initGrad()
         for i in range(3):
-            self.xdata[i]=np.array([])
-            self.ydata[i]=np.array([])
-            self.ydataPos2[i] = np.array([])
-            self.error[i]=np.array([])
-            self.errorPos2[i] = np.array([])
+            self.xdata[i].append(np.array([]))
+            self.ydata[i].append(np.array([]))
+            self.ydataPos2[i].append(np.array([]))
+            self.error[i].append(np.array([]))
+            self.errorPos2[i].append(np.array([]))
 
-            self.errorItems[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydata[i], height=self.error[i]))
+            self.errorItems[i].append(pg.ErrorBarItem(x=self.xdata[i][-1], y=self.ydata[i][-1], height=self.error[i][-1]))
             self.plotRefs[i].addItem(self.errorItems[i][-1])
-            self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydata[i], pen=None, symbol='o', symbolBrush=(self.runNum%5, 5)))
+            self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i][-1], self.ydata[i][-1], pen=None, symbol='o', symbolBrush=(self.runNum%5, 5)))
 
             if self.mode == self.RunModes.pos:
                 self.error[i+3]=np.array([])
-                self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.error[i+3]))
+                self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i][-1], y=self.ydataPos2[i][-1], height=self.error[i+3][-1]))
                 self.plotRefs[i+3].addItem(self.errorItems[i+3][-1])
-                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i], self.ydataPos2[i], symbol='o', symbolBrush=(self.runNum%5, 5)))
+                self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i][-1], self.ydataPos2[i][-1], symbol='o', symbolBrush=(self.runNum%5, 5)))
 
-            self.errorItemsPos2[i].append(pg.ErrorBarItem(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i]))
+            self.errorItemsPos2[i].append(pg.ErrorBarItem(x=self.xdata[i][-1], y=self.ydataPos2[i][-1], height=self.errorPos2[i][-1]))
             self.plotRefs[i].addItem(self.errorItemsPos2[i][-1])
-            self.plotDataRefsPos2[i].append(self.plotRefs[i].plot(self.xdata[i], self.ydataPos2[i], symbol='o', symbolBrush=(self.runNum%5, 5)))
+            self.plotDataRefsPos2[i].append(self.plotRefs[i].plot(self.xdata[i][-1], self.ydataPos2[i][-1], symbol='o', symbolBrush=(self.runNum%5, 5)))
         self.runNum += 1
 
     def repeatRun(self, repeats, runCallback):
@@ -469,18 +469,18 @@ class RunWindow(QMainWindow):
             uTPerVolt = 10
             for i in range(3):
                 # y and error are the same between modes
-                self.ydata[i] = np.append(self.ydata[i], uTPerVolt*pos1[i])
-                self.error[i] = np.append(self.error[i], uTPerVolt*std1[i])
+                self.ydata[i][-1] = np.append(self.ydata[i], uTPerVolt*pos1[i])
+                self.error[i][-1] = np.append(self.error[i], uTPerVolt*std1[i])
                 if self.mode == self.RunModes.pos:
-                    self.xdata[i] = np.append(self.xdata[i], self.gradiometer.pos + self.getOffset(i))
+                    self.xdata[i][-1] = np.append(self.xdata[i][-1], self.gradiometer.pos + self.getOffset(i))
                     # Since pos2 has rotated axes a shifting must be done
                     index = 2 if i==0 else (0 if i == 2 else 1)
-                    self.ydataPos2[i] = np.append(self.ydataPos2[i], -uTPerVolt*pos2[index])
-                    self.errorPos2[i] = np.append(self.errorPos2[i], uTPerVolt*std2[index])
+                    self.ydataPos2[i][-1] = np.append(self.ydataPos2[i][-1], -uTPerVolt*pos2[index])
+                    self.errorPos2[i][-1] = np.append(self.errorPos2[i][-1], uTPerVolt*std2[index])
                 elif self.mode == self.RunModes.time:
-                    if len(self.xdata[i]) == 0:
+                    if len(self.xdata[i][-1]) == 0:
                         self.startTime = time.time()
-                    self.xdata[i] = np.append(self.xdata[i], time.time()-self.startTime)
+                    self.xdata[i][-1] = np.append(self.xdata[i][-1], time.time()-self.startTime)
         finally:
             self.datamutex.release()
 
