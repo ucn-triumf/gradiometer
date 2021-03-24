@@ -433,8 +433,8 @@ class RunWindow(QMainWindow):
             self.plotDataRefs[i].append(self.plotRefs[i].plot(self.xdata[i][-1], self.ydata[i][-1], pen=None, symbol='o', symbolBrush=(self.runNum%5, 5)))
 
             if self.mode == self.RunModes.pos:
-                self.error[i+3]=np.array([])
-                self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i][-1], y=self.ydataPos2[i][-1], height=self.error[i+3][-1]))
+                self.error[i+3].append(np.array([]))
+                self.errorItems[i+3].append(pg.ErrorBarItem(x=self.xdata[i][-1], y=self.ydata[i][-1], height=self.error[i+3][-1]))
                 self.plotRefs[i+3].addItem(self.errorItems[i+3][-1])
                 self.plotDataRefs[i+3].append(self.plotRefs[i+3].plot(self.xdata[i][-1], self.ydataPos2[i][-1], symbol='o', symbolBrush=(self.runNum%5, 5)))
 
@@ -469,8 +469,8 @@ class RunWindow(QMainWindow):
             uTPerVolt = 10
             for i in range(3):
                 # y and error are the same between modes
-                self.ydata[i][-1] = np.append(self.ydata[i], uTPerVolt*pos1[i])
-                self.error[i][-1] = np.append(self.error[i], uTPerVolt*std1[i])
+                self.ydata[i][-1] = np.append(self.ydata[i][-1], uTPerVolt*pos1[i])
+                self.error[i][-1] = np.append(self.error[i][-1], uTPerVolt*std1[i])
                 if self.mode == self.RunModes.pos:
                     self.xdata[i][-1] = np.append(self.xdata[i][-1], self.gradiometer.pos + self.getOffset(i))
                     # Since pos2 has rotated axes a shifting must be done
@@ -495,18 +495,18 @@ class RunWindow(QMainWindow):
                     if self.mode == self.RunModes.pos:
                         self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
                     if i < 3:
-                        self.plotDataRefs[i][-1].setData(self.xdata[i], self.ydata[i])
-                        self.errorItems[i][-1].setData(x=self.xdata[i], y=self.ydata[i], height=self.error[i])
+                        self.plotDataRefs[i][-1].setData(self.xdata[i][-1], self.ydata[i][-1])
+                        self.errorItems[i][-1].setData(x=self.xdata[i][-1], y=self.ydata[i][-1], height=self.error[i][-1])
                         if self.mode == self.RunModes.pos:
-                            self.plotDataRefsPos2[i][-1].setData(self.xdata[i], self.ydataPos2[i])
-                            self.errorItemsPos2[i][-1].setData(x=self.xdata[i], y=self.ydataPos2[i], height=self.errorPos2[i])
+                            self.plotDataRefsPos2[i][-1].setData(self.xdata[i][-1], self.ydataPos2[i][-1])
+                            self.errorItemsPos2[i][-1].setData(x=self.xdata[i][-1], y=self.ydataPos2[i][-1], height=self.errorPos2[i][-1])
                     else:
                         lower=min(i for i, x in enumerate(
-                            self.xdata[i % 3]) if x > 30)
+                            self.xdata[i % 3][-1]) if x > 30)
                         upper=max(i for i, x in enumerate(
-                            self.xdata[i % 3]) if x < 50)
-                        self.plotDataRefs[i][-1].setData(self.xdata[i % 3][lower:upper], self.ydata[i % 3][lower:upper])
-                        self.errorItems[i][-1].setData(x=self.xdata[i % 3][lower:upper], y=self.ydata[i % 3][lower:upper], height=self.error[i % 3][lower:upper])
+                            self.xdata[i % 3][-1]) if x < 50)
+                        self.plotDataRefs[i][-1].setData(self.xdata[i % 3][-1][lower:upper], self.ydata[i % 3][-1][lower:upper])
+                        self.errorItems[i][-1].setData(x=self.xdata[i % 3][-1][lower:upper], y=self.ydata[i % 3][-1][lower:upper], height=self.error[i % 3][-1][lower:upper])
                 except (IndexError, ValueError) as e:
                     pass
             try: 
