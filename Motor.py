@@ -2,10 +2,10 @@
 
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_StepperMotor
 
-class Motor:
-    def __init__(self):
+class Motor():
+    def __init__(self,motorNumber): #motor number is 1 for the lower motor and 2 for the upper motor
         self.mh = Adafruit_MotorHAT()
-        self.myStepper = self.mh.getStepper(200, 1)
+        self.myStepper = self.mh.getStepper(200, motorNumber)
         self.myStepper.setSpeed(30)
 
     def turnOffMotors(self):
