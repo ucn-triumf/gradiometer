@@ -3,6 +3,8 @@ This is a GUI wrapper for the existing gradiometer functionality implemented in 
 It is based on pyqt, and have functionality for calibration, time runs and position runs
 """
 
+# TODO: Add functionality to choose motor speed
+
 import matplotlib
 import PyQt5.QtCore as QtCore
 from PyQt5.QtCore import Qt
@@ -217,6 +219,7 @@ class CalibrationWindow(QMainWindow):
             self.backButton.setEnabled(True)
             self.motorSelection.setEnabled(True)
 
+    # TODO: which is more accurate: fluxgate position measurements or physical distance between switches measurement?
     def calibrateGrad(self, position_right, position_left, steps):
         ACTUAL_DIST = 102  # cm
         distance = abs(position_right - position_left)
@@ -319,15 +322,15 @@ class RunWindow(QMainWindow):
             self.samplesPerPosEntry = QSpinBox()
             self.samplesPerPosEntry.setValue(5)
 
-            self.cmPerStep = QDoubleSpinBox()
-            self.cmPerStep.setValue(0.08)
-            self.cmPerStep.setSingleStep(0.01)
+            self.motorSpeed = QDoubleSpinBox()
+            self.motorSpeed.setValue(30)
+            self.motorSpeed.setSingleStep(1)
 
             self.settingsLayout.addRow('Start (cm):', self.startEntry)
             self.settingsLayout.addRow('Stop (cm):', self.stopEntry)
             self.settingsLayout.addRow(
                 'Samples per position:', self.samplesPerPosEntry)
-            self.settingsLayout.addRow('Step size (cm) IGNORE:', self.cmPerStep)
+            self.settingsLayout.addRow('Motor Speed (RPM):', self.motorSpeed)
 
 
         elif self.mode == self.RunModes.time:
@@ -359,7 +362,7 @@ class RunWindow(QMainWindow):
         # Different functionality for start button depending on mode
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(lambda: self.startPosRun(self.startEntry.value(
-            ), self.stopEntry.value(), self.tagEntry.text(), self.motorSelection.currentData(), self.cmPerStep.value(),
+            ), self.stopEntry.value(), self.tagEntry.text(), self.motorSelection.currentData(), self.motorSpeed.value(),
                 self.samplesPerPosEntry.value(), self.repeatsEntry.value()))
         elif self.mode == self.RunModes.time:
             self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(
@@ -435,7 +438,6 @@ class RunWindow(QMainWindow):
         self.gradiometer.labjack.close()
         self.gradiometer.savePos()
         self.gradiometer.motor.turnOffMotors()
-
 
     def startPosRun(self, start, stop, tag, motorNumber, cmPerStep, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""

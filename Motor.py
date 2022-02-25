@@ -16,3 +16,6 @@ class Motor():
         self.mh.getMotor(3).run(Adafruit_MotorHAT.RELEASE)
         self.mh.getMotor(4).run(Adafruit_MotorHAT.RELEASE)
         print('motor turned off')
+
+    def setSpeed(self,rpm):
+        self.myStepper.setSpeed(rpm)
