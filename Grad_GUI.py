@@ -436,6 +436,7 @@ class RunWindow(QMainWindow):
         self.gradiometer.savePos()
         self.gradiometer.motor.turnOffMotors()
 
+
     def startPosRun(self, start, stop, tag, motorNumber, cmPerStep, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
 
