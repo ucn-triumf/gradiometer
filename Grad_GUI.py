@@ -3,8 +3,6 @@ This is a GUI wrapper for the existing gradiometer functionality implemented in 
 It is based on pyqt, and have functionality for calibration, time runs and position runs
 """
 
-# TODO: Add functionality to choose motor speed
-
 import matplotlib
 import PyQt5.QtCore as QtCore
 from PyQt5.QtCore import Qt
@@ -34,16 +32,18 @@ mainWindow = None
 
 LOWER_MOTOR = 1
 UPPER_MOTOR = 2
+# used in all the cases when the motor speed should not be chosen by the user
+STANDARD_MOTOR_SPEED = 60
 
 
-def initGrad(motorNumber):
+def initGrad(motorNumber, motorSpeed):
     """Initializes gradiometer and sets atext functions for safe usage
     Only call this function once as only one gradiometer can be created
 
     Returns:
         Gradiometer: gradiometer that has just been initialized
     """
-    g = Gradiometer(motorNumber)
+    g = Gradiometer(motorNumber, motorSpeed)
     atexit.register(g.motor.turnOffMotors)
     atexit.register(g.savePos)
     atexit.register(g.labjack.close)
@@ -187,7 +187,8 @@ class CalibrationWindow(QMainWindow):
                 right = limit_switch_upper_right
 
             if not remoteDev:
-                self.gradiometer = initGrad(self.motorSelection.currentData())
+                # for calibration the motorSpeed is set at 60.
+                self.gradiometer = initGrad(self.motorSelection.currentData(), motorSpeed=STANDARD_MOTOR_SPEED)
                 self.gradiometer.zero()
 
             print(left)
@@ -323,7 +324,9 @@ class RunWindow(QMainWindow):
             self.samplesPerPosEntry.setValue(5)
 
             self.motorSpeed = QDoubleSpinBox()
+            self.motorSpeed.setMinimum(10)
             self.motorSpeed.setValue(30)
+            self.motorSpeed.setMaximum(100)
             self.motorSpeed.setSingleStep(1)
 
             self.settingsLayout.addRow('Start (cm):', self.startEntry)
@@ -365,10 +368,11 @@ class RunWindow(QMainWindow):
             ), self.stopEntry.value(), self.tagEntry.text(), self.motorSelection.currentData(), self.motorSpeed.value(),
                 self.samplesPerPosEntry.value(), self.repeatsEntry.value()))
         elif self.mode == self.RunModes.time:
-            self.operateButton.clicked.connect(lambda: self.startTimeRun(self.secEntry.value(), self.tagEntry.text(
-            ), self.motorSelection.currentData(), self.scanFreqEntry.value(),
-                                                                         None if not self.changePosEntry.isChecked() else self.cmEntry.value(),
-                                                                         self.repeatsEntry.value()))
+            self.operateButton.clicked.connect(
+                lambda: self.startTimeRun(sec=self.secEntry.value(), tag=self.tagEntry.text(
+                ), motorNumber=self.motorSelection.currentData(), motorSpeed=STANDARD_MOTOR_SPEED, scanFreq=self.scanFreqEntry.value(),
+                                          cm=None if not self.changePosEntry.isChecked() else self.cmEntry.value(),
+                                          repeats=self.repeatsEntry.value()))
         self.configLayout.addWidget(self.operateButton)
 
         self.backButton = QPushButton("Back")
@@ -439,7 +443,7 @@ class RunWindow(QMainWindow):
         self.gradiometer.savePos()
         self.gradiometer.motor.turnOffMotors()
 
-    def startPosRun(self, start, stop, tag, motorNumber, cmPerStep, samplesPerPos, repeats):
+    def startPosRun(self, start, stop, tag, motorNumber, motorSpeed, samplesPerPos, repeats):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
 
         # Disable operation button so two runs don't get started at once
@@ -449,9 +453,10 @@ class RunWindow(QMainWindow):
         # Nest callback is kind of confusing, there's probably an easier way to do things
         # Basically gradCallback is called every time a measurement is made, while a lambda that uses this callback is given to the thread to run
         gradCallback = lambda i: self.gradiometer.posRun(
-            start if i % 2 == 0 else stop, stop if i % 2 == 0 else start, tag, cmPerStep, graph=False,
+            start if i % 2 == 0 else stop, stop if i % 2 == 0 else start, tag, graph=False,
             samples_per_pos=samplesPerPos, mes_callback=self.updateData)
-        self.gradThread = threading.Thread(target=lambda: self.repeatRun(motorNumber, repeats, gradCallback))
+        self.gradThread = threading.Thread(
+            target=lambda: self.repeatRun(motorNumber, motorSpeed, repeats, gradCallback))
         for i in range(6):
             # Right now I'm just settting the axis in a hardcoded way to get them to line up as per Beatrice's request, but if dynamic spacing is required this should work: 
             # self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
@@ -460,7 +465,7 @@ class RunWindow(QMainWindow):
             self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
         self.gradThread.start()
 
-    def startTimeRun(self, sec, tag, motorNumber, scanFreq, cm, repeats):
+    def startTimeRun(self, sec, tag, motorNumber, motorSpeed, scanFreq, cm, repeats):
         """Starts time run. Arguments are same as in Gradiometer.timeRun"""
         self.operateButton.setEnabled(False)
         self.backButton.setEnabled(False)
@@ -468,17 +473,18 @@ class RunWindow(QMainWindow):
         # See startPosRun for what nest lambda does
         gradCallback = lambda i: self.gradiometer.timeRun(
             sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData)
-        self.gradThread = threading.Thread(target=lambda: self.repeatRun(motorNumber, repeats, gradCallback))
+        self.gradThread = threading.Thread(
+            target=lambda: self.repeatRun(motorNumber, motorSpeed, repeats, gradCallback))
         # Initializes axes to show maximum range any data series currently uses to avoid cutting any off
         for i in range(3):
             self.plotRefs[i].setXRange(0, max(self.plotRefs[i].viewRange()[0][1], sec) + 1)
         self.gradThread.start()
 
-    def setupRun(self, motorNumber):
+    def setupRun(self, motorNumber, motorSpeed):
         """Sets up shared run settings for pos and time runs"""
         # Initialize shared gradiometer if not already done
         if not self.gradiometer:
-            self.gradiometer = initGrad(motorNumber)
+            self.gradiometer = initGrad(motorNumber, motorSpeed)
 
         for i in range(3):
             self.xdata[i].append(np.array([]))
@@ -511,7 +517,7 @@ class RunWindow(QMainWindow):
 
         self.runNum += 1
 
-    def repeatRun(self, motorNumber, repeats, runCallback):
+    def repeatRun(self, motorNumber, motorSpeed, repeats, runCallback):
         """Repeats a run of the given callback
 
         Args:
@@ -519,7 +525,7 @@ class RunWindow(QMainWindow):
             runCallback (Function): Callback that takes which iteration it's on
         """
         for i in range(repeats):
-            self.setupRun(motorNumber)
+            self.setupRun(motorNumber, motorSpeed)
             runCallback(i)
             # Not strictly necessary, just put it in to physically be able to differentiate runs
             time.sleep(1)

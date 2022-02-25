@@ -23,9 +23,9 @@ class Gradiometer:
     LOWER_MOTOR = 1
     UPPER_MOTOR = 2
 
-    def __init__(self, motorNumber):
+    def __init__(self, motorNumber, motorSpeed):
 
-        self.motor = Motor(motorNumber)  # defaults to lower motor
+        self.motor = Motor(motorNumber, motorSpeed)  # defaults to lower motor
         self.pos = self.loadPos()
         self.CM_PER_STEP = self.loadCal()
         self.labjack = u6.U6()
