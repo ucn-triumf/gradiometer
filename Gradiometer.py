@@ -23,11 +23,11 @@ class Gradiometer:
     LOWER_MOTOR = 1
     UPPER_MOTOR = 2
 
-    def __init__(self, motorNumber, motorSpeed):
+    def __init__(self, motor_number, motor_speed):
 
-        self.motor = Motor(motorNumber, motorSpeed)  # defaults to lower motor
-        self.pos = self.loadPos()
-        self.CM_PER_STEP = self.loadCal()
+        self.motor = Motor(motor_number, motor_speed)  # defaults to lower motor
+        self.pos = self.load_pos()
+        self.CM_PER_STEP = self.load_cal()
         self.labjack = u6.U6()
         self.fg1 = Fluxgate(self.labjack, 1)
         self.fg2 = Fluxgate(self.labjack, 2)
@@ -43,21 +43,25 @@ class Gradiometer:
         """
         dis = cm - self.pos
         steps = round(abs(dis / self.CM_PER_STEP))
-        print('goTo: starting at', self.pos)
-        print('goTo: will take', steps, 'steps')
+        print("goTo: starting at", self.pos)
+        print("goTo: will take", steps, "steps")
         if dis > 0:
-            self.motor.myStepper.step(steps, self.motor.mh.BACKWARD, self.motor.mh.DOUBLE)
-            self.setPos(self.pos + (self.CM_PER_STEP * steps))
+            self.motor.myStepper.step(
+                steps, self.motor.mh.BACKWARD, self.motor.mh.DOUBLE
+            )
+            self.set_pos(self.pos + (self.CM_PER_STEP * steps))
         elif dis < 0:
-            self.motor.myStepper.step(steps, self.motor.mh.FORWARD, self.motor.mh.DOUBLE)
-            self.setPos(self.pos - (self.CM_PER_STEP * steps))
+            self.motor.myStepper.step(
+                steps, self.motor.mh.FORWARD, self.motor.mh.DOUBLE
+            )
+            self.set_pos(self.pos - (self.CM_PER_STEP * steps))
         else:
-            print('already at position')
-        print('goTo: finished at position', self.pos)
+            print("already at position")
+        print("goTo: finished at position", self.pos)
         # self.motor.turnOffMotors()
         return steps
 
-    def oneStep(self, direction):
+    def one_step(self, direction):
         """makes the stepper motor take one step in the specified direction
 
         Args:
@@ -66,52 +70,53 @@ class Gradiometer:
         """
 
         if direction == self.motor.mh.BACKWARD:
-            self.motor.myStepper.oneStep(direction, self.motor.mh.DOUBLE)
-            self.setPos(self.pos + self.CM_PER_STEP)
+            self.motor.myStepper.one_step(direction, self.motor.mh.DOUBLE)
+            self.set_pos(self.pos + self.CM_PER_STEP)
         elif direction == self.motor.mh.FORWARD:
-            self.motor.myStepper.oneStep(direction, self.motor.mh.DOUBLE)
-            self.setPos(self.pos - self.CM_PER_STEP)
+            self.motor.myStepper.one_step(direction, self.motor.mh.DOUBLE)
+            self.set_pos(self.pos - self.CM_PER_STEP)
         else:
-            print("invalid direction, must be self.motor.mh.FORWARD or self.motor.mh.BACKWARD")
+            print(
+                "invalid direction, must be self.motor.mh.FORWARD or self.motor.mh.BACKWARD"
+            )
             # maybe this should throw an error instead?
 
-    def loadPos(self):
+    def load_pos(self):
         """reads fluxgate position from the binary file 'POSITION.pickle'
 
         Returns:
             float: previously saved position of fluxgate
         """
-        posFile = open('POSITION.pickle', 'rb')
+        posFile = open("POSITION.pickle", "rb")
         try:
             pos = pickle.load(posFile)
         except EOFError:
             self.zero()
-            self.savePos()
-            self.loadPos()
+            self.save_pos()
+            self.load_pos()
         posFile.close()
         return pos
 
-    def savePos(self):
-        """saves the current fluxgate position self.pos to the binary file 
-           'POSITION.pickle'
+    def save_pos(self):
+        """saves the current fluxgate position self.pos to the binary file
+        'POSITION.pickle'
         """
-        posFile = open('POSITION.pickle', 'wb')
+        posFile = open("POSITION.pickle", "wb")
         pickle.dump(self.pos, posFile)
         posFile.close()
-        print('saved pos')
+        print("saved pos")
 
-    def loadCal(self):
-        with open('./config.json') as f:
+    def load_cal(self):
+        with open("./config.json") as f:
             data = json.load(f)
 
-        return data['CM_PER_STEP']
+        return data["CM_PER_STEP"]
 
     def zero(self):
-        """sets fluxgate position to zero
-        """
-        self.setPos(0)
+        """sets fluxgate position to zero"""
+        self.set_pos(0)
 
-    def setPos(self, x):
+    def set_pos(self, x):
         """sets fluxgate posiiton self.pos to x
 
         Args:
@@ -119,7 +124,7 @@ class Gradiometer:
         """
         self.pos = x
 
-    def getPos(self):
+    def get_pos(self):
         """helper method for getting fluxgate position
 
         Returns:
@@ -127,7 +132,15 @@ class Gradiometer:
         """
         return self.pos
 
-    def posRun(self, start, stop, tag, cmPerStep, graph=False, samples_per_pos=5, mes_callback=None):
+    def pos_run(
+        self,
+        start,
+        stop,
+        tag,
+        graph=False,
+        samples_per_pos=5,
+        mes_callback=None,
+    ):
         """a measurement mode where the gradiometer takes a measurement at every
            step in a range. Saves results in a .csv in /Run_Data/
 
@@ -136,34 +149,48 @@ class Gradiometer:
             stop (float): ending position of the measurement run in cm
             tag (string): a string that will be included in the file name of the
                 .csv file
-            graph (bool, optional): determines whether a graph of the raw data 
+            graph (bool, optional): determines whether a graph of the raw data
                 will be shown at the end of the run. Defaults to False.
             samples_per_pos (int, optional): number of samples averaged together
                 for each measurement. Defaults to 5.
-            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]): 
-                A callback function to be called every time a measurement is taken. 
+            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]):
+                A callback function to be called every time a measurement is taken.
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
         """
-        filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), tag)
-        csvfile = open(filename, 'w')
-        fieldnames = ['timestamp', 'time', 'position',
-                      'x1', 'y1', 'z1',
-                      'x2', 'y2', 'z2',
-                      'dx1', 'dy1', 'dz1',
-                      'dx2', 'dy2', 'dz2']
+        filename = "Run_Data/{}-{}.csv".format(
+            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
+        )
+        csvfile = open(filename, "w")
+        fieldnames = [
+            "timestamp",
+            "time",
+            "position",
+            "x1",
+            "y1",
+            "z1",
+            "x2",
+            "y2",
+            "z2",
+            "dx1",
+            "dy1",
+            "dz1",
+            "dx2",
+            "dy2",
+            "dz2",
+        ]
         writer = csv.DictWriter(csvfile, fieldnames)
         writer.writeheader()
 
         # cm per step
 
         self.goTo(start)
-        print('starting run at {}cm'.format(self.pos))
+        print("starting run at {}cm".format(self.pos))
 
         dis = stop - self.pos
         steps = math.ceil(abs(dis / self.CM_PER_STEP)) + 1
         startTime = datetime.now()
-        print('will take {} steps'.format(steps))
+        print("will take {} steps".format(steps))
         if dis > 0:
             direction = self.motor.mh.BACKWARD
         else:
@@ -179,27 +206,44 @@ class Gradiometer:
                 print("FINISHED COLLECTING SAMPLES: {}".format(datetime.now()))
                 t = timer.time()
                 print(
-                    'measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(
-                        self.pos, x1, y1, z1, x2, y2, z2))
-                writer.writerow({'timestamp': timeStamp, 'time': time,
-                                 'position': position,
-                                 'x1': x1, 'y1': y1, 'z1': z1,
-                                 'x2': x2, 'y2': y2, 'z2': z2,
-                                 'dx1': dx1, 'dy1': dy1, 'dz1': dz1,
-                                 'dx2': dx2, 'dy2': dy2, 'dz2': dz2})
+                    "measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}".format(
+                        self.pos, x1, y1, z1, x2, y2, z2
+                    )
+                )
+                writer.writerow(
+                    {
+                        "timestamp": timeStamp,
+                        "time": time,
+                        "position": position,
+                        "x1": x1,
+                        "y1": y1,
+                        "z1": z1,
+                        "x2": x2,
+                        "y2": y2,
+                        "z2": z2,
+                        "dx1": dx1,
+                        "dy1": dy1,
+                        "dz1": dz1,
+                        "dx2": dx2,
+                        "dy2": dy2,
+                        "dz2": dz2,
+                    }
+                )
 
                 if mes_callback:
-                    mes_callback([x1, y1, z1], [x2, y2, z2], [dx1, dy1, dz1], [dx2, dy2, dz2])
+                    mes_callback(
+                        [x1, y1, z1], [x2, y2, z2], [dx1, dy1, dz1], [dx2, dy2, dz2]
+                    )
 
-                self.oneStep(direction)
+                self.one_step(direction)
 
-            print('finished at {}cm'.format(self.pos))
+            print("finished at {}cm".format(self.pos))
         except KeyboardInterrupt:
-            print('run stopped at {}cm'.format(self.pos))
+            print("run stopped at {}cm".format(self.pos))
         finally:
             csvfile.close()
-            self.motor.turnOffMotors()
-            self.savePos()
+            self.motor.turn_off_motors()
+            self.save_pos()
 
         if graph:
             self.plotter(filename, mode=1)
@@ -220,17 +264,34 @@ class Gradiometer:
             scanFreq (int, optional): The number of times per second the Labjack
                 reads the set of 6 AINs. 1000 will produce ~5 measurements per
                 second. Defaults to 1000. Max 8000.
-            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]): 
-                A callback function to be called every time a measurement is taken. 
+            mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]):
+                A callback function to be called every time a measurement is taken.
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
         """
         if cm == None:
-            cm = self.getPos()
-        filename = 'Run_Data/{}-{}.csv'.format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), tag)
-        csvfile = open(filename, 'w')
-        fieldnames = ['timestamp', 'time', 'position', 'x1', 'y1', 'z1', 'x2', 'y2', 'z2', 'dx1', 'dy1', 'dz1', 'dx2',
-                      'dy2', 'dz2']
+            cm = self.get_pos()
+        filename = "Run_Data/{}-{}.csv".format(
+            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
+        )
+        csvfile = open(filename, "w")
+        fieldnames = [
+            "timestamp",
+            "time",
+            "position",
+            "x1",
+            "y1",
+            "z1",
+            "x2",
+            "y2",
+            "z2",
+            "dx1",
+            "dy1",
+            "dz1",
+            "dx2",
+            "dy2",
+            "dz2",
+        ]
         writer = csv.DictWriter(csvfile, fieldnames)
         writer.writeheader()
 
@@ -238,43 +299,51 @@ class Gradiometer:
         channeloptions = [0] * 6
         scanfreq = scanFreq
         self.labjack.getCalibrationData()
-        self.labjack.streamConfig(NumChannels=len(ainchannels), ResolutionIndex=1, SettlingFactor=0,
-                                  ChannelNumbers=ainchannels, ChannelOptions=channeloptions, ScanFrequency=scanfreq)
+        self.labjack.streamConfig(
+            NumChannels=len(ainchannels),
+            ResolutionIndex=1,
+            SettlingFactor=0,
+            ChannelNumbers=ainchannels,
+            ChannelOptions=channeloptions,
+            ScanFrequency=scanfreq,
+        )
 
         missed = 0
         dataCount = 0
         packetCount = 0
 
         self.goTo(cm)
-        print('starting run at {}cm'.format(self.pos))
-        position = self.getPos()
+        print("starting run at {}cm".format(self.pos))
+        position = self.get_pos()
 
         try:
             self.labjack.streamStart()
             startTime = datetime.now()
-            print('starting run at {}'.format(startTime))
+            print("starting run at {}".format(startTime))
 
             for r in self.labjack.streamData():
                 if r is not None:
                     # stop condition
                     if (datetime.now() - startTime).seconds > sec:
                         break
-                    if r['errors'] != 0:
-                        print("Error: %s ; " % r['errors'], datetime.now())
-                    if r['numPackets'] != self.labjack.packetsPerRequest:
-                        print("----- UNDERFLOW : %s : " % r['numPackets'], datetime.now())
-                    if r['missed'] != 0:
-                        missed += r['missed']
-                        print("+++ Missed ", r['missed'])
+                    if r["errors"] != 0:
+                        print("Error: %s ; " % r["errors"], datetime.now())
+                    if r["numPackets"] != self.labjack.packetsPerRequest:
+                        print(
+                            "----- UNDERFLOW : %s : " % r["numPackets"], datetime.now()
+                        )
+                    if r["missed"] != 0:
+                        missed += r["missed"]
+                        print("+++ Missed ", r["missed"])
 
                     timeStamp = datetime.now()
                     time = (timeStamp - startTime).total_seconds()
-                    x1 = r['AIN0']
-                    y1 = r['AIN1']
-                    z1 = r['AIN2']
-                    x2 = r['AIN3']
-                    y2 = r['AIN4']
-                    z2 = r['AIN5']
+                    x1 = r["AIN0"]
+                    y1 = r["AIN1"]
+                    z1 = r["AIN2"]
+                    x2 = r["AIN3"]
+                    y2 = r["AIN4"]
+                    z2 = r["AIN5"]
 
                     x1val = sum(x1) / len(x1)
                     y1val = sum(y1) / len(y1)
@@ -291,43 +360,71 @@ class Gradiometer:
                     dz2 = np.std(z2)
 
                     if mes_callback:
-                        mes_callback([x1val, y1val, z1val], [x2val, y2val, z2val], [dx1, dy1, dz1], [dx2, dy2, dz2])
+                        mes_callback(
+                            [x1val, y1val, z1val],
+                            [x2val, y2val, z2val],
+                            [dx1, dy1, dz1],
+                            [dx2, dy2, dz2],
+                        )
 
                     print(
-                        'measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}'.format(
-                            time, x1val, y1val, z1val, x2val, y2val, z2val))
-                    writer.writerow({'timestamp': timeStamp, 'time': time,
-                                     'position': position,
-                                     'x1': x1val, 'y1': y1val, 'z1': z1val,
-                                     'x2': x2val, 'y2': y2val, 'z2': z2val,
-                                     'dx1': dx1, 'dy1': dy1, 'dz1': dz1,
-                                     'dx2': dx2, 'dy2': dy2, 'dz2': dz2})
+                        "measuring at {:4.2f}, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}".format(
+                            time, x1val, y1val, z1val, x2val, y2val, z2val
+                        )
+                    )
+                    writer.writerow(
+                        {
+                            "timestamp": timeStamp,
+                            "time": time,
+                            "position": position,
+                            "x1": x1val,
+                            "y1": y1val,
+                            "z1": z1val,
+                            "x2": x2val,
+                            "y2": y2val,
+                            "z2": z2val,
+                            "dx1": dx1,
+                            "dy1": dy1,
+                            "dz1": dz1,
+                            "dx2": dx2,
+                            "dy2": dy2,
+                            "dz2": dz2,
+                        }
+                    )
 
                     dataCount += 1
-                    packetCount += r['numPackets']
+                    packetCount += r["numPackets"]
 
                 else:
-                    print('no data')
+                    print("no data")
 
         except Exception as e:
             tb = sys.exc_info()[-1]
-            print(traceback.extract_tb(tb, limit=1)[-1][1])  # Print what line the Exception occured on
+            print(
+                traceback.extract_tb(tb, limit=1)[-1][1]
+            )  # Print what line the Exception occured on
             print(e)  # Print the exception
         finally:
             stopTime = datetime.now()
             self.labjack.streamStop()
             # self.labjack.close()
-            print('ending run at {}'.format(stopTime))
+            print("ending run at {}".format(stopTime))
             sampleTotal = packetCount * self.labjack.streamSamplesPerPacket
             scanTotal = sampleTotal / len(ainchannels)
-            print("{} requests with {} packets per request with {} samples per packet = {} samples total.".format(
-                dataCount, (float(packetCount) / dataCount), self.labjack.streamSamplesPerPacket, sampleTotal))
+            print(
+                "{} requests with {} packets per request with {} samples per packet = {} samples total.".format(
+                    dataCount,
+                    (float(packetCount) / dataCount),
+                    self.labjack.streamSamplesPerPacket,
+                    sampleTotal,
+                )
+            )
             print("{} samples were lost due to errors.".format(missed))
             scanTotal -= missed
             print("Adjusted total: {}".format(scanTotal))
             csvfile.close()
             # self.motor.turnOffMotors()
-            self.savePos()
+            self.save_pos()
 
         if graph == True:
             self.plotter(filename, mode=2)
@@ -340,13 +437,15 @@ class Gradiometer:
             mode (int): 1 for a .csv produced by Gradiometer.posRun
                         2 for a .csv produced by Gradiometer.timeRun
         """
-        results = np.loadtxt(csvfile, delimiter=',', skiprows=1, usecols=[1, 2, 3, 4, 5, 6, 7, 8])
+        results = np.loadtxt(
+            csvfile, delimiter=",", skiprows=1, usecols=[1, 2, 3, 4, 5, 6, 7, 8]
+        )
         print(results.dtype)
         fig, [ax1, ax2] = plt.subplots(2, 1, sharex=True)
         ax1.grid()
-        ax1.set_title('Fluxgate 1')
+        ax1.set_title("Fluxgate 1")
         ax2.grid()
-        ax2.set_title('Fluxgate 2')
+        ax2.set_title("Fluxgate 2")
         time = results[:, 0]
         y1pos = results[:, 1]
         z1pos = y1pos - 1.5
@@ -370,10 +469,10 @@ class Gradiometer:
 def main():
     g = Gradiometer(1)
     g.zero()
-    atexit.register(g.motor.turnOffMotors)
-    atexit.register(g.savePos)
+    atexit.register(g.motor.turn_off_motors)
+    atexit.register(g.save_pos)
     atexit.register(g.labjack.close)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

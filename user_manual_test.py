@@ -9,14 +9,14 @@ from Gradiometer import Gradiometer
 import atexit
 
 g=Gradiometer()
-atexit.register(g.motor.turnOffMotors)
-atexit.register(g.savePos)
+atexit.register(g.motor.turn_off_motors)
+atexit.register(g.save_pos)
 atexit.register(g.labjack.close)
 g.zero()
 
-g.posRun(0,10,'pos5')
-g.posRun(0,10,'pos10',samples_per_pos=10)
-g.posRun(0,10,'pos50',samples_per_pos=50)
+g.pos_run(0, 10, 'pos5')
+g.pos_run(0, 10, 'pos10', samples_per_pos=10)
+g.pos_run(0, 10, 'pos50', samples_per_pos=50)
 
 g.timeRun(5,'time1000')
 g.timeRun(5,'time500',scanFreq=500)
