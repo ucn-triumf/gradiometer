@@ -1,257 +1,32 @@
-"""
-This is a GUI wrapper for the existing gradiometer functionality implemented in Gradiometer.py
-It is based on pyqt, and have functionality for calibration, time runs and position runs
-"""
-
-import matplotlib
-import PyQt5.QtCore as QtCore
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import *
-import pyqtgraph as pg
 import threading
-import atexit
 import time
-import json
-import sys
+
 import numpy as np
+from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
+    QMainWindow,
+    QFileDialog,
+    QHBoxLayout,
+    QWidget,
+    QVBoxLayout,
+    QFormLayout,
+    QLineEdit,
+    QPushButton,
+    QComboBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QCheckBox,
+)
+import pyqtgraph as pg
 
-# import RPi.GPIO as GPIO uncomment this and comment the line below when using RPi. This is for Windows.
-import testRPi.GPIO as GPIO
-
-# This is for remote development. If true it will be able to be used without physical access to the gradiometer
-# Note this is only for testing, if this is set to true the GUI will not be functional
-remoteDev = False
-
-if not remoteDev:
-    from Gradiometer import Gradiometer
-
-# Enables matplotlib with pyqt
-matplotlib.use("Qt5Agg")
-
-# This is global variable since otherwise it goes out of scope in TaskSelectDialog
-mainWindow = None
-
-LOWER_MOTOR = 1
-UPPER_MOTOR = 2
-# used in all the cases when the motor speed should not be chosen by the user
-STANDARD_MOTOR_SPEED = 60
-
-
-def init_grad(motorNumber, motorSpeed):
-    """Initializes gradiometer and sets atext functions for safe usage
-    Only call this function once as only one gradiometer can be created
-
-    Returns:
-        Gradiometer: gradiometer that has just been initialized
-    """
-    g = Gradiometer(motorNumber, motorSpeed)
-    atexit.register(g.motor.turn_off_motors)
-    atexit.register(g.save_pos)
-    atexit.register(g.labjack.close)
-    return g
-
-
-class TaskSelectDialog(QDialog):
-    """Initial Dialog class for GUI"""
-
-    class TaskTypes:
-        """Enum for types of tasks to open"""
-
-        cal = "Calibration"
-        pos_run = "Position Run"
-        time_run = "Time Run"
-
-    def __init__(self, parent=None):
-        """Initializes new opening dialog
-
-        Args:
-            parent: parent element. Defaults to None.
-        """
-        super().__init__(parent)
-        self.setWindowTitle("Gradiometer GUI")
-        layout = QVBoxLayout()
-        form_layout = QFormLayout()
-
-        # Selection box for different tasks
-        task_selection = QComboBox()
-        task_selection.addItem(self.TaskTypes.cal)
-        task_selection.addItem(self.TaskTypes.pos_run)
-        task_selection.addItem(self.TaskTypes.time_run)
-
-        form_layout.addRow("Task:", task_selection)
-        layout.addLayout(form_layout)
-
-        buttons = QDialogButtonBox()
-        buttons.setStandardButtons(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
-        layout.addWidget(buttons)
-
-        # Register button click events
-        buttons.button(QDialogButtonBox.Cancel).clicked.connect(lambda: sys.exit())
-        buttons.button(QDialogButtonBox.Ok).clicked.connect(
-            lambda: self.start_main(task_selection.currentText())
-        )
-        self.setLayout(layout)
-
-    def start_main(self, task_type):
-        """Starts the main application of the appropriate type
-
-        Args:
-            task_type (str): The type of task to start, given by TaskTypes enum
-        """
-        global mainWindow
-        if task_type == self.TaskTypes.cal:
-            mainWindow = CalibrationWindow()
-            mainWindow.show()
-        elif task_type == self.TaskTypes.pos_run:
-            mainWindow = RunWindow(RunWindow.RunModes.pos)
-            mainWindow.showMaximized()
-        elif task_type == self.TaskTypes.time_run:
-            mainWindow = RunWindow(RunWindow.RunModes.time)
-            mainWindow.showMaximized()
-
-        self.close()
-
-
-class CalibrationWindow(QMainWindow):
-    """Main window for calibration task"""
-
-    # Variable for calibration distance, might want to change later
-    calDist = 80
-
-    def __init__(self, parent=None):
-        """Initializes calibration windows.
-
-        Args:
-            parent: parent element for QT. Defaults to None.
-        """
-        super().__init__(parent)
-        self.setWindowTitle("Gradiometer Calibration")
-        self.setFixedSize(700, 400)
-        self.general_layout = QVBoxLayout()
-        self._central_widget = QWidget(self)
-        self.setCentralWidget(self._central_widget)
-        self._central_widget.setLayout(self.general_layout)
-        # Since window isn't maximized have to set margins or else becomes too small
-        self.general_layout.setContentsMargins(50, 50, 50, 50)
-        self.calibration_screen()
-
-    # MEASURE ACTUAL DISTANCE FOR THIS
-    def calibration_screen(self):
-        self.title = QLabel("<h1>Calibration</h2>")
-        self.title.setAlignment(Qt.AlignCenter)
-        self.general_layout.addWidget(self.title)
-
-        self.intro = QLabel(
-            "<p>The gradiometer will calibrate the selected belt automatically. Click 'Calibrate' to begin. When finished, you may calibrate again or click 'Back' to return to the task selection screen.</p>"
-        )
-        self.intro.setWordWrap(True)
-        self.general_layout.addWidget(self.intro)
-
-        self.motor_selection = QComboBox()
-        self.motor_selection.addItem("Lower belt")
-        self.motor_selection.addItem("Upper belt")
-        self.motor_selection.setItemData(0, LOWER_MOTOR)
-        self.motor_selection.setItemData(1, UPPER_MOTOR)
-        self.general_layout.addWidget(self.motor_selection)
-
-        limit_switch_lower_right = 6
-        limit_switch_lower_left = 5
-        limit_switch_upper_right = 13
-        limit_switch_upper_left = 12
-
-        self.finish_button = QPushButton("Calibrate")
-        self.finish_button.clicked.connect(
-            lambda: threading.Thread(target=calibration_run).start()
-        )
-        self.general_layout.addWidget(self.finish_button)
-
-        self.back_button = QPushButton("Back")
-        self.back_button.clicked.connect(
-            lambda: self.return_from_calibration(TaskSelectDialog())
-        )
-        self.general_layout.addWidget(self.back_button)
-
-        # Set up the GPIO pins of the limit switches (left and right as viewed from the desk with the monitor)
-
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(limit_switch_lower_right, GPIO.IN)
-        GPIO.setup(limit_switch_lower_left, GPIO.IN)
-        GPIO.setup(limit_switch_upper_right, GPIO.IN)
-        GPIO.setup(limit_switch_upper_left, GPIO.IN)
-
-        # Set up the moving thread to not freeze the GUI
-
-        # When the different belts are selected, different switch pins are required.
-        # TODO: finish calibration_run left/right selection and calibration
-        def calibration_run():
-
-            # Get the correct right and left limit switches
-            if self.motor_selection.currentData() == LOWER_MOTOR:
-                left = limit_switch_lower_left
-                right = limit_switch_lower_right
-            elif self.motor_selection.currentData() == UPPER_MOTOR:
-                left = limit_switch_upper_left
-                right = limit_switch_upper_right
-
-            if not remoteDev:
-                # for calibration the motorSpeed is set at 60.
-                self.gradiometer = init_grad(
-                    self.motor_selection.currentData(), motorSpeed=STANDARD_MOTOR_SPEED
-                )
-                self.gradiometer.zero()
-
-            # This version of the function is for the lower belt. Goes from to the left switch, then to the right. Stops at the right switch
-            self.finish_button.setEnabled(False)
-            self.back_button.setEnabled(False)
-            self.motor_selection.setEnabled(False)
-
-            steps = 0
-
-            while GPIO.input(limit_switch_lower_left) == 0:
-                self.gradiometer.one_step(self.gradiometer.motor.mh.BACKWARD)
-
-            self.gradiometer.save_pos()
-            position_right = self.gradiometer.get_pos()
-
-            while GPIO.input(limit_switch_lower_right) == 0:
-                self.gradiometer.one_step(self.gradiometer.motor.mh.FORWARD)
-                steps = (
-                    steps + 1
-                )  # Is there a more intellectual way of counting the steps?
-
-            self.gradiometer.save_pos()
-            position_left = self.gradiometer.get_pos()
-
-            self.calibrate_grad(position_right, position_left, steps)
-
-            self.finish_button.setEnabled(True)
-            self.back_button.setEnabled(True)
-            self.motor_selection.setEnabled(True)
-
-    # TODO: which is more accurate: fluxgate position measurements or physical distance between switches measurement?
-    def calibrate_grad(self, position_right, position_left, steps):
-        actual_distance = 102  # cm
-        distance = abs(position_right - position_left)
-        with open("./config.json") as f:
-            data = json.load(f)
-            data["CM_PER_STEP"] = distance / steps
-        # Not sure if there's a nice way of not having to open it twice, doesn't look super aesthetically pleasing
-        with open("./config.json", "w") as f:
-            # Note: some idiot decided that json.dumps is different from json.dump, be careful if you replicate this elsewhere
-            json.dump(data, f)
-        cm_per_step = distance / steps
-        print(
-            "distance: {}, steps: {}, cm per step: {}".format(
-                distance, steps, cm_per_step
-            )
-        )
-
-    def return_from_calibration(self, previous_window):
-        previous_window.show()
-        self.close()
-        self.gradiometer.labjack.close()
-        self.gradiometer.save_pos()
-        self.gradiometer.motor.turn_off_motors()
+from global_imports import (
+    STANDARD_MOTOR_SPEED,
+    init_grad,
+    LOWER_MOTOR,
+    UPPER_MOTOR,
+    return_to_prev_window,
+)
 
 
 class RunWindow(QMainWindow):
@@ -281,6 +56,11 @@ class RunWindow(QMainWindow):
         pos = 1
         time = 2
 
+    def select_folder(self, entry_field):
+        dialog = QFileDialog()
+        folder_path = dialog.getExistingDirectory(None, "Select Folder")
+        entry_field.setText(folder_path)
+
     def __init__(self, mode, parent=None):
         """Initializes posRun class
 
@@ -297,6 +77,7 @@ class RunWindow(QMainWindow):
                 "Position" if self.mode == self.RunModes.pos else "Time"
             )
         )
+        self.setWindowModality(Qt.ApplicationModal)
 
         # Sets up general layout
         self.generalLayout = QHBoxLayout()
@@ -309,47 +90,62 @@ class RunWindow(QMainWindow):
         self.generalLayout.addLayout(self.configLayout, 33)
 
         # Configuration entries
-        self.settingsLayout = QFormLayout()
+        self.settings_layout = QFormLayout()
         self.tagEntry = QLineEdit()
         # TEMP: Remove before final version of GUI
         self.tagEntry.setText("GUITest")
-        self.settingsLayout.addRow("Tag (to be appended to file name):", self.tagEntry)
+        self.settings_layout.addRow("Tag (to be appended to file name):", self.tagEntry)
+
+        # Save folder destination selection
+        self.save_folder_path = QLineEdit()
+        self.save_folder_path.setText("Run_Data/")
+        # TODO: make save folder path field editable but such that it cannot be left empty
+        self.save_folder_path.setEnabled(False)
+        self.select_folder_button = QPushButton("Select Save Folder")
+        self.settings_layout.addRow(self.select_folder_button, self.save_folder_path)
+
+        self.select_folder_button.clicked.connect(
+            lambda: self.select_folder(self.save_folder_path)
+        )
 
         # Motor (belt) selection
 
-        self.motorSelection = QComboBox()
-        self.motorSelection.addItem("Lower belt")
-        self.motorSelection.addItem("Upper belt")
-        self.settingsLayout.addRow("Select belt:", self.motorSelection)
-        self.motorSelection.setItemData(0, LOWER_MOTOR)
-        self.motorSelection.setItemData(1, UPPER_MOTOR)
+        self.motor_selection = QComboBox()
+        self.motor_selection.addItem("Lower belt")
+        self.motor_selection.addItem("Upper belt")
+        self.settings_layout.addRow("Belt:", self.motor_selection)
+        self.motor_selection.setItemData(0, LOWER_MOTOR)
+        self.motor_selection.setItemData(1, UPPER_MOTOR)
 
-        self.repeatsEntry = QSpinBox()
-        self.repeatsEntry.setValue(1)
-        self.settingsLayout.addRow(
-            "Number of times to repeat measurement:", self.repeatsEntry
+        self.repeats_entry = QSpinBox()
+        self.repeats_entry.setMinimum(1)
+        self.repeats_entry.setValue(1)
+        self.settings_layout.addRow(
+            "Number of times to repeat measurement:", self.repeats_entry
         )
 
         # UI entry boxes specific to the different modes
         if self.mode == self.RunModes.pos:
-            self.startEntry = QDoubleSpinBox()
-            self.stopEntry = QDoubleSpinBox()
-            self.startEntry.setValue(0)
-            self.stopEntry.setValue(10)
+            self.start_entry = QDoubleSpinBox()
+            self.stop_entry = QDoubleSpinBox()
+            self.start_entry.setValue(0)
+            self.stop_entry.setValue(10)
 
-            self.samplesPerPosEntry = QSpinBox()
-            self.samplesPerPosEntry.setValue(5)
+            self.samples_per_pos_entry = QSpinBox()
+            self.samples_per_pos_entry.setValue(5)
 
-            self.motorSpeed = QDoubleSpinBox()
-            self.motorSpeed.setMinimum(10)
-            self.motorSpeed.setValue(30)
-            self.motorSpeed.setMaximum(100)
-            self.motorSpeed.setSingleStep(1)
+            self.motor_speed = QDoubleSpinBox()
+            self.motor_speed.setMinimum(10)
+            self.motor_speed.setValue(30)
+            self.motor_speed.setMaximum(100)
+            self.motor_speed.setSingleStep(1)
 
-            self.settingsLayout.addRow("Start (cm):", self.startEntry)
-            self.settingsLayout.addRow("Stop (cm):", self.stopEntry)
-            self.settingsLayout.addRow("Samples per position:", self.samplesPerPosEntry)
-            self.settingsLayout.addRow("Motor Speed (RPM):", self.motorSpeed)
+            self.settings_layout.addRow("Start (cm):", self.start_entry)
+            self.settings_layout.addRow("Stop (cm):", self.stop_entry)
+            self.settings_layout.addRow(
+                "Samples per position:", self.samples_per_pos_entry
+            )
+            self.settings_layout.addRow("Motor Speed (RPM):", self.motor_speed)
 
         elif self.mode == self.RunModes.time:
             self.secEntry = QSpinBox()
@@ -367,48 +163,50 @@ class RunWindow(QMainWindow):
             self.cmEntry = QDoubleSpinBox()
             self.cmEntry.setEnabled(False)
 
-            self.settingsLayout.addRow("Time to scan (s):", self.secEntry)
-            self.settingsLayout.addRow("Scan Frequency (Hz):", self.scanFreqEntry)
-            self.settingsLayout.addRow(
+            self.settings_layout.addRow("Time to scan (s):", self.secEntry)
+            self.settings_layout.addRow("Scan Frequency (Hz):", self.scanFreqEntry)
+            self.settings_layout.addRow(
                 "Change position before scan:", self.changePosEntry
             )
-            self.settingsLayout.addRow("Measurement location (cm):", self.cmEntry)
+            self.settings_layout.addRow("Measurement location (cm):", self.cmEntry)
 
-        self.configLayout.addLayout(self.settingsLayout)
+        self.configLayout.addLayout(self.settings_layout)
 
         self.operateButton = QPushButton("Start Run")
         # Different functionality for start button depending on mode
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(
                 lambda: self.startPosRun(
-                    self.startEntry.value(),
-                    self.stopEntry.value(),
-                    self.tagEntry.text(),
-                    self.motorSelection.currentData(),
-                    self.motorSpeed.value(),
-                    self.samplesPerPosEntry.value(),
-                    self.repeatsEntry.value(),
+                    start=self.start_entry.value(),
+                    stop=self.stop_entry.value(),
+                    tag=self.tagEntry.text(),
+                    save_folder_path=self.save_folder_path.text(),
+                    motorNumber=self.motor_selection.currentData(),
+                    motorSpeed=self.motor_speed.value(),
+                    samplesPerPos=self.samples_per_pos_entry.value(),
+                    repeats=self.repeats_entry.value(),
                 )
             )
         elif self.mode == self.RunModes.time:
             self.operateButton.clicked.connect(
-                lambda: self.startTimeRun(
+                lambda: self.start_time_run(
                     sec=self.secEntry.value(),
                     tag=self.tagEntry.text(),
-                    motorNumber=self.motorSelection.currentData(),
+                    save_folder_path=self.save_folder_path.text(),
+                    motorNumber=self.motor_selection.currentData(),
                     motorSpeed=STANDARD_MOTOR_SPEED,
                     scanFreq=self.scanFreqEntry.value(),
                     cm=None
                     if not self.changePosEntry.isChecked()
                     else self.cmEntry.value(),
-                    repeats=self.repeatsEntry.value(),
+                    repeats=self.repeats_entry.value(),
                 )
             )
         self.configLayout.addWidget(self.operateButton)
 
-        self.backButton = QPushButton("Back")
-        self.backButton.clicked.connect(lambda: self.returnTo(TaskSelectDialog()))
-        self.configLayout.addWidget(self.backButton)
+        self.back_button = QPushButton("Back")
+        self.back_button.clicked.connect(lambda: return_to_prev_window(self))
+        self.configLayout.addWidget(self.back_button)
 
         # Initializes graphs
         self.graphLayout = QVBoxLayout()
@@ -417,9 +215,9 @@ class RunWindow(QMainWindow):
         self.xdata = []
         # Data for moving magnetometer
         # Might want to rename this to ydataPos1 to differentiate it from ydataPos2
-        self.ydata = []
+        self.ydata_pos1 = []
         # Data for constant magnetometer
-        self.ydataPos2 = []
+        self.ydata_pos2 = []
         # Error bars for data sets defined above
         self.error = []
         self.errorPos2 = []
@@ -437,8 +235,8 @@ class RunWindow(QMainWindow):
         for i in range(self.numPlots):
             # Initialize empty arrays
             self.xdata.append([])
-            self.ydata.append([])
-            self.ydataPos2.append([])
+            self.ydata_pos1.append([])
+            self.ydata_pos2.append([])
             self.error.append([])
             self.errorPos2.append([])
             self.plotDataRefs.append([])
@@ -472,28 +270,31 @@ class RunWindow(QMainWindow):
         self.timer.timeout.connect(self.updateGraph)
         self.timer.start()
 
-    def returnTo(self, previousWindow):
-        previousWindow.show()
-        self.close()
-        self.gradiometer.labjack.close()
-        self.gradiometer.save_pos()
-        self.gradiometer.motor.turn_off_motors()
-
     def startPosRun(
-        self, start, stop, tag, motorNumber, motorSpeed, samplesPerPos, repeats
+            self,
+            start,
+            stop,
+            tag,
+            save_folder_path,
+            motorNumber,
+            motorSpeed,
+            samplesPerPos,
+            repeats,
     ):
         """Starts position run. Arguments are same as in Gradiometer.posRun"""
 
         # Disable operation button so two runs don't get started at once
         self.operateButton.setEnabled(False)
-        self.backButton.setEnabled(False)
-        # self.backButton.setEnabled(False)
-        # Nest callback is kind of confusing, there's probably an easier way to do things
-        # Basically gradCallback is called every time a measurement is made, while a lambda that uses this callback is given to the thread to run
+        self.back_button.setEnabled(False)
+        # self.backButton.setEnabled(False) Nest callback is kind of confusing, there's probably an easier way to do
+        # things Basically gradCallback is called every time a measurement is made, while a lambda that uses this
+        # callback is given to the thread to run
+
         gradCallback = lambda i: self.gradiometer.pos_run(
             start if i % 2 == 0 else stop,
             stop if i % 2 == 0 else start,
             tag,
+            save_folder_path,
             graph=False,
             samples_per_pos=samplesPerPos,
             mes_callback=self.updateData,
@@ -511,14 +312,22 @@ class RunWindow(QMainWindow):
             self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
         self.gradThread.start()
 
-    def startTimeRun(self, sec, tag, motorNumber, motorSpeed, scanFreq, cm, repeats):
+    def start_time_run(
+            self, sec, tag, save_folder_path, motorNumber, motorSpeed, scanFreq, cm, repeats
+    ):
         """Starts time run. Arguments are same as in Gradiometer.timeRun"""
         self.operateButton.setEnabled(False)
-        self.backButton.setEnabled(False)
+        self.back_button.setEnabled(False)
         # self.backButton.setEnabled(False)
         # See startPosRun for what nest lambda does
         gradCallback = lambda i: self.gradiometer.timeRun(
-            sec, tag, cm, graph=False, scanFreq=scanFreq, mes_callback=self.updateData
+            sec,
+            tag,
+            save_folder_path,
+            cm,
+            graph=False,
+            scanFreq=scanFreq,
+            mes_callback=self.updateData,
         )
         self.gradThread = threading.Thread(
             target=lambda: self.repeatRun(
@@ -532,7 +341,7 @@ class RunWindow(QMainWindow):
             )
         self.gradThread.start()
 
-    def setupRun(self, motorNumber, motorSpeed):
+    def setup_run(self, motorNumber, motorSpeed):
         """Sets up shared run settings for pos and time runs"""
         # Initialize shared gradiometer if not already done
         if not self.gradiometer:
@@ -540,21 +349,23 @@ class RunWindow(QMainWindow):
 
         for i in range(3):
             self.xdata[i].append(np.array([]))
-            self.ydata[i].append(np.array([]))
-            self.ydataPos2[i].append(np.array([]))
+            self.ydata_pos1[i].append(np.array([]))
+            self.ydata_pos2[i].append(np.array([]))
             self.error[i].append(np.array([]))
             self.errorPos2[i].append(np.array([]))
 
             self.errorItems[i].append(
                 pg.ErrorBarItem(
-                    x=self.xdata[i][-1], y=self.ydata[i][-1], height=self.error[i][-1]
+                    x=self.xdata[i][-1],
+                    y=self.ydata_pos1[i][-1],
+                    height=self.error[i][-1],
                 )
             )
             self.plotRefs[i].addItem(self.errorItems[i][-1])
             self.plotDataRefs[i].append(
                 self.plotRefs[i].plot(
                     self.xdata[i][-1],
-                    self.ydata[i][-1],
+                    self.ydata_pos1[i][-1],
                     pen=None,
                     symbol="o",
                     symbolBrush=(self.runNum % 5, 5),
@@ -566,7 +377,7 @@ class RunWindow(QMainWindow):
                 self.errorItems[i + 3].append(
                     pg.ErrorBarItem(
                         x=self.xdata[i][-1],
-                        y=self.ydata[i][-1],
+                        y=self.ydata_pos1[i][-1],
                         height=self.error[i + 3][-1],
                     )
                 )
@@ -574,7 +385,7 @@ class RunWindow(QMainWindow):
                 self.plotDataRefs[i + 3].append(
                     self.plotRefs[i + 3].plot(
                         self.xdata[i][-1],
-                        self.ydataPos2[i][-1],
+                        self.ydata_pos2[i][-1],
                         symbol="o",
                         symbolBrush=(self.runNum % 5, 5),
                     )
@@ -583,7 +394,7 @@ class RunWindow(QMainWindow):
             self.errorItemsPos2[i].append(
                 pg.ErrorBarItem(
                     x=self.xdata[i][-1],
-                    y=self.ydataPos2[i][-1],
+                    y=self.ydata_pos2[i][-1],
                     height=self.errorPos2[i][-1],
                 )
             )
@@ -591,7 +402,7 @@ class RunWindow(QMainWindow):
             self.plotDataRefsPos2[i].append(
                 self.plotRefs[i].plot(
                     self.xdata[i][-1],
-                    self.ydataPos2[i][-1],
+                    self.ydata_pos2[i][-1],
                     symbol="o",
                     symbolBrush=(self.runNum % 5, 5),
                 )
@@ -607,7 +418,7 @@ class RunWindow(QMainWindow):
             runCallback (Function): Callback that takes which iteration it's on
         """
         for i in range(repeats):
-            self.setupRun(motorNumber, motorSpeed)
+            self.setup_run(motorNumber, motorSpeed)
             runCallback(i)
             # Not strictly necessary, just put it in to physically be able to differentiate runs
             time.sleep(1)
@@ -625,7 +436,9 @@ class RunWindow(QMainWindow):
             uTPerVolt = 10
             for i in range(3):
                 # y and error are the same between modes
-                self.ydata[i][-1] = np.append(self.ydata[i][-1], uTPerVolt * pos1[i])
+                self.ydata_pos1[i][-1] = np.append(
+                    self.ydata_pos1[i][-1], uTPerVolt * pos1[i]
+                )
                 self.error[i][-1] = np.append(self.error[i][-1], uTPerVolt * std1[i])
                 if self.mode == self.RunModes.pos:
                     self.xdata[i][-1] = np.append(
@@ -633,8 +446,8 @@ class RunWindow(QMainWindow):
                     )
                     # Since pos2 has rotated axes a shifting must be done
                     index = 2 if i == 0 else (0 if i == 2 else 1)
-                    self.ydataPos2[i][-1] = np.append(
-                        self.ydataPos2[i][-1], -uTPerVolt * pos2[index]
+                    self.ydata_pos2[i][-1] = np.append(
+                        self.ydata_pos2[i][-1], -uTPerVolt * pos2[index]
                     )
                     self.errorPos2[i][-1] = np.append(
                         self.errorPos2[i][-1], uTPerVolt * std2[index]
@@ -661,11 +474,13 @@ class RunWindow(QMainWindow):
                         self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
                     if i < 3:
                         self.plotDataRefs[i][-1].setData(
-                            self.xdata[i][-1], self.ydata[i][-1], downsample=downsample
+                            self.xdata[i][-1],
+                            self.ydata_pos1[i][-1],
+                            downsample=downsample,
                         )
                         self.errorItems[i][-1].setData(
                             x=self.xdata[i][-1],
-                            y=self.ydata[i][-1],
+                            y=self.ydata_pos1[i][-1],
                             height=self.error[i][-1],
                             downsample=downsample,
                         )
@@ -682,12 +497,12 @@ class RunWindow(QMainWindow):
                         upper = max(data_restricted)
                         self.plotDataRefs[i][-1].setData(
                             self.xdata[i % 3][-1][lower:upper],
-                            self.ydata[i % 3][-1][lower:upper],
+                            self.ydata_pos1[i % 3][-1][lower:upper],
                             downsample=downsample,
                         )
                         self.errorItems[i][-1].setData(
                             x=self.xdata[i % 3][-1][lower:upper],
-                            y=self.ydata[i % 3][-1][lower:upper],
+                            y=self.ydata_pos1[i % 3][-1][lower:upper],
                             height=self.error[i % 3][-1][lower:upper],
                             downsample=downsample,
                         )
@@ -696,7 +511,7 @@ class RunWindow(QMainWindow):
             try:
                 if not self.gradThread.is_alive():
                     self.operateButton.setEnabled(True)
-                    self.backButton.setEnabled(True)
+                    self.back_button.setEnabled(True)
             except:
                 pass
         finally:
@@ -717,11 +532,3 @@ class RunWindow(QMainWindow):
             return 0
         elif i == 2:
             return -1.5
-
-
-# Main entry point
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    dlg = TaskSelectDialog()
-    dlg.show()
-    sys.exit(app.exec_())

@@ -137,6 +137,7 @@ class Gradiometer:
         start,
         stop,
         tag,
+        save_folder_path,
         graph=False,
         samples_per_pos=5,
         mes_callback=None,
@@ -158,8 +159,8 @@ class Gradiometer:
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
         """
-        filename = "Run_Data/{}-{}.csv".format(
-            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
+        filename = "{}/{}-{}.csv".format(
+            save_folder_path, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
         )
         csvfile = open(filename, "w")
         fieldnames = [
@@ -248,7 +249,16 @@ class Gradiometer:
         if graph:
             self.plotter(filename, mode=1)
 
-    def timeRun(self, sec, tag, cm=None, graph=False, scanFreq=1000, mes_callback=None):
+    def timeRun(
+        self,
+        sec,
+        tag,
+        save_folder_path,
+        cm=None,
+        graph=False,
+        scanFreq=1000,
+        mes_callback=None,
+    ):
         """Takes continuous measurements at a dingle position for an amount of
            time. Saves results in a .csv in /Run_Data/
 
@@ -271,8 +281,8 @@ class Gradiometer:
         """
         if cm == None:
             cm = self.get_pos()
-        filename = "Run_Data/{}-{}.csv".format(
-            datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
+        filename = "{}}/{}-{}.csv".format(
+            save_folder_path, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
         )
         csvfile = open(filename, "w")
         fieldnames = [
