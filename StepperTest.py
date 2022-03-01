@@ -2,7 +2,7 @@
 #import Adafruit_MotorHAT, Adafruit_DCMotor, Adafruit_Stepper
 from Adafruit_MotorHAT import Adafruit_MotorHAT, Adafruit_DCMotor, Adafruit_StepperMotor
 
-import time
+from datetime import datetime
 import atexit
 
 # create a default object, no changes to I2C address or frequency
@@ -17,10 +17,10 @@ def turnOffMotors():
 
 atexit.register(turnOffMotors)
 
-myStepper = mh.getStepper(200, 1)  # 200 steps/rev, motor port #1
+myStepper = mh.getStepper(200, 2)  # 200 steps/rev, motor port #1
 myStepper.setSpeed(30)             # 30 RPM
 
-while (True):
+while (False):
     print("Single coil steps")
     myStepper.step(100, Adafruit_MotorHAT.FORWARD,  Adafruit_MotorHAT.SINGLE)
     myStepper.step(100, Adafruit_MotorHAT.BACKWARD, Adafruit_MotorHAT.SINGLE)
@@ -36,3 +36,33 @@ while (True):
     print("Microsteps")
     myStepper.step(100, Adafruit_MotorHAT.FORWARD,  Adafruit_MotorHAT.MICROSTEP)
     myStepper.step(100, Adafruit_MotorHAT.BACKWARD, Adafruit_MotorHAT.MICROSTEP)
+
+
+
+
+
+myStepper.step(700, Adafruit_MotorHAT.FORWARD,Adafruit_MotorHAT.DOUBLE)
+ 
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

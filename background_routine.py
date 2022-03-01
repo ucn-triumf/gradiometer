@@ -9,9 +9,9 @@ from Gradiometer import Gradiometer
 import atexit
 
 g=Gradiometer()
-atexit.register(g.motor.turnOffMotors)
-atexit.register(g.savePos)
+atexit.register(g.motor.turn_off_motors)
+atexit.register(g.save_pos)
 atexit.register(g.labjack.close)
 g.zero()
-g.posRun(0, 80, 'background')
+g.pos_run(0, 80, 'background')
 g.goTo(0)

@@ -9,11 +9,11 @@ from Gradiometer import Gradiometer
 import atexit
 
 g=Gradiometer()
-atexit.register(g.motor.turnOffMotors)
-atexit.register(g.savePos)
+atexit.register(g.motor.turn_off_motors)
+atexit.register(g.save_pos)
 atexit.register(g.labjack.close)
 g.zero()
 foilNum = input('foil number? \n')
 direction = input('par or perp? \n')
-g.posRun(0, 80, 'foil{}-{}-full'.format(foilNum,direction))
+g.pos_run(0, 80, 'foil{}-{}-full'.format(foilNum, direction))
 g.goTo(0)
