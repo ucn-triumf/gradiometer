@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import csv
 import json
 from datetime import datetime
 import time as timer
@@ -18,8 +17,8 @@ from Fluxgate import Fluxgate
 
 
 class Gradiometer:
-    # This is a good baseline and it's being kept in case file saving fails, but this value is reloaded from config.json
-    # This means editing this number won't do anything
+    # This is a good baseline, and it's being kept in case file saving fails, but this value is reloaded from
+    # config.json This means editing this number won't do anything
     CM_PER_STEP = 0.082268
     LOWER_MOTOR = 1
     UPPER_MOTOR = 2
@@ -33,7 +32,7 @@ class Gradiometer:
         self.fg1 = Fluxgate(self.labjack, 1)
         self.fg2 = Fluxgate(self.labjack, 2)
 
-    def goTo(self, cm):
+    def go_to(self, cm):
         """moves the fluxgate to the position cm, rounded to the nearest step
 
         Args:
@@ -88,23 +87,23 @@ class Gradiometer:
         Returns:
             float: previously saved position of fluxgate
         """
-        posFile = open("POSITION.pickle", "rb")
+        pos_file = open("POSITION.pickle", "rb")
         try:
-            pos = pickle.load(posFile)
+            pos = pickle.load(pos_file)
         except EOFError:
             self.zero()
             self.save_pos()
             self.load_pos()
-        posFile.close()
+        pos_file.close()
         return pos
 
     def save_pos(self):
         """saves the current fluxgate position self.pos to the binary file
         'POSITION.pickle'
         """
-        posFile = open("POSITION.pickle", "wb")
-        pickle.dump(self.pos, posFile)
-        posFile.close()
+        pos_file = open("POSITION.pickle", "wb")
+        pickle.dump(self.pos, pos_file)
+        pos_file.close()
         print("saved pos")
 
     def load_cal(self):
@@ -118,7 +117,7 @@ class Gradiometer:
         self.set_pos(0)
 
     def set_pos(self, x):
-        """sets fluxgate posiiton self.pos to x
+        """sets fluxgate position self.pos to x
 
         Args:
             x (float): position to set self.pos to
@@ -143,7 +142,7 @@ class Gradiometer:
         samples_per_pos=5,
         mes_callback=None,
     ):
-        """a measurement mode where the gradiometer takes a measurement at every
+        """A measurement mode where the gradiometer takes a measurement at every
            step in a range. Saves results in a .csv in /Run_Data/
 
         Args:
@@ -159,11 +158,13 @@ class Gradiometer:
                 A callback function to be called every time a measurement is taken.
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
+            save_folder_path: location where the file will be saved on the local machine
+            (should NOT include the file name)
         """
 
         file = DataFile(save_folder_path, tag)
 
-        self.goTo(start)
+        self.go_to(start)
         print("starting run at {}cm".format(self.pos))
 
         dis = stop - self.pos
@@ -183,6 +184,7 @@ class Gradiometer:
                 [x1, y1, z1], [dx1, dy1, dz1] = self.fg1.sample(samples_per_pos)
                 [x2, y2, z2], [dx2, dy2, dz2] = self.fg2.sample(samples_per_pos)
                 print("FINISHED COLLECTING SAMPLES: {}".format(datetime.now()))
+                # what is this for?
                 t = timer.time()
                 print(
                     "measuring at {:3.4f}cm, x1={:2.3f} y1={:2.3f} z1={:2.3f}, x2={:2.3f} y2={:2.3f} z2={:2.3f}".format(
@@ -257,30 +259,32 @@ class Gradiometer:
                 A callback function to be called every time a measurement is taken.
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
+            save_folder_path: location where the file will be saved on the local machine
+            (should NOT include the file name)
         """
         if cm is None:
             cm = self.get_pos()
 
         file = DataFile(save_folder_path, tag)
 
-        ainchannels = range(6)
-        channeloptions = [0] * 6
-        scanfreq = scan_freq
+        ain_channels = range(6)
+        channel_options = [0] * 6
+
         self.labjack.getCalibrationData()
         self.labjack.streamConfig(
-            NumChannels=len(ainchannels),
+            NumChannels=len(ain_channels),
             ResolutionIndex=1,
             SettlingFactor=0,
-            ChannelNumbers=ainchannels,
-            ChannelOptions=channeloptions,
-            ScanFrequency=scanfreq,
+            ChannelNumbers=ain_channels,
+            ChannelOptions=channel_options,
+            ScanFrequency=scan_freq,
         )
 
         missed = 0
-        dataCount = 0
-        packetCount = 0
+        data_count = 0
+        packet_count = 0
 
-        self.goTo(cm)
+        self.go_to(cm)
         print("starting run at {}cm".format(self.pos))
         position = self.get_pos()
 
@@ -359,8 +363,8 @@ class Gradiometer:
                     ]
                     file.write_row(values)
 
-                    dataCount += 1
-                    packetCount += r["numPackets"]
+                    data_count += 1
+                    packet_count += r["numPackets"]
 
                 else:
                     print("no data")
@@ -369,19 +373,19 @@ class Gradiometer:
             tb = sys.exc_info()[-1]
             print(
                 traceback.extract_tb(tb, limit=1)[-1][1]
-            )  # Print what line the Exception occured on
+            )  # Print what line the Exception occurred on
             print(e)  # Print the exception
         finally:
             stop_time = datetime.now()
             self.labjack.streamStop()
             # self.labjack.close()
             print("ending run at {}".format(stop_time))
-            sample_total = packetCount * self.labjack.streamSamplesPerPacket
-            scan_total = sample_total / len(ainchannels)
+            sample_total = packet_count * self.labjack.streamSamplesPerPacket
+            scan_total = sample_total / len(ain_channels)
             print(
                 "{} requests with {} packets per request with {} samples per packet = {} samples total.".format(
-                    dataCount,
-                    (float(packetCount) / dataCount),
+                    data_count,
+                    (float(packet_count) / data_count),
                     self.labjack.streamSamplesPerPacket,
                     sample_total,
                 )

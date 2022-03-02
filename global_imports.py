@@ -6,6 +6,7 @@ LOWER_MOTOR = 1
 UPPER_MOTOR = 2
 # used in all the cases when the motor speed should not be chosen by the user
 STANDARD_MOTOR_SPEED = 60
+# What is this for?
 remoteDev = False
 
 

@@ -1,7 +1,6 @@
 # MOTOR
 
 from Adafruit_MotorHAT import Adafruit_MotorHAT
-import tkinter as tk
 
 class Motor:
     def __init__(

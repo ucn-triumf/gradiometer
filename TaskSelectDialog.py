@@ -1,6 +1,4 @@
 import sys
-
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -59,13 +57,11 @@ class TaskSelectDialog(QDialog):
         Args:
             task_type (str): The type of task to start, given by TaskTypes enum
         """
-        self.isModal()
         global mainWindow
 
         if task_type == self.TaskTypes.cal:
             mainWindow = CalibrationWindow()
             mainWindow.show()
-
         elif task_type == self.TaskTypes.pos_run:
             mainWindow = RunWindow(RunWindow.RunModes.pos)
             mainWindow.showMaximized()

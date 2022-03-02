@@ -1,9 +1,13 @@
 import json
 import threading
 
-import RPi.GPIO as GPIO
-# uncomment this and comment the line below when using RPi. This is for Windows.
-# import testRPi.GPIO as GPIO
+# set true or false depending on which system the code is running on
+RPi_computer = False
+
+if RPi_computer:
+    import RPi.GPIO as GPIO
+else:
+    import testRPi as GPIO
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -25,7 +29,6 @@ from global_imports import (
 
 
 class CalibrationWindow(QMainWindow):
-
     """Main window for calibration task"""
 
     # Variable for calibration distance, might want to change later
@@ -90,41 +93,46 @@ class CalibrationWindow(QMainWindow):
         GPIO.setup(limit_switch_upper_left, GPIO.IN)
 
         # Set up the moving thread to not freeze the GUI
-
-        # When the different belts are selected, different switch pins are required.
-        # TODO: finish calibration_run left/right selection and calibration
         def calibration_run():
 
+            belt = self.motor_selection.currentData()
+
             # Get the correct right and left limit switches
-            if self.motor_selection.currentData() == LOWER_MOTOR:
+            if belt == LOWER_MOTOR:
                 left = limit_switch_lower_left
                 right = limit_switch_lower_right
-            elif self.motor_selection.currentData() == UPPER_MOTOR:
+                toward_right = self.gradiometer.motor.mh.FORWARD
+                toward_left = self.gradiometer.motor.mh.BACKWARD
+            elif belt == UPPER_MOTOR:
                 left = limit_switch_upper_left
                 right = limit_switch_upper_right
+                toward_right = self.gradiometer.motor.mh.BACKWARD
+                toward_left = self.gradiometer.motor.mh.FORWARD
 
             if not remoteDev:
                 # for calibration the motorSpeed is set at 60.
                 self.gradiometer = init_grad(
-                    self.motor_selection.currentData(), motor_speed=STANDARD_MOTOR_SPEED
+                    motor_number=self.motor_selection.currentData(),
+                    motor_speed=STANDARD_MOTOR_SPEED,
                 )
                 self.gradiometer.zero()
 
-            # This version of the function is for the lower belt. Goes from to the left switch, then to the right. Stops at the right switch
+            # This version of the function is for the lower belt. Goes from to the left switch, then to the right.
+            # Stops at the right switch
             self.finish_button.setEnabled(False)
             self.back_button.setEnabled(False)
             self.motor_selection.setEnabled(False)
 
             steps = 0
-
-            while GPIO.input(limit_switch_lower_left) == 0:
-                self.gradiometer.one_step(self.gradiometer.motor.mh.BACKWARD)
+            # TODO: double-check the BACKWARD FORWARD directions relative to the limit switches
+            while GPIO.input(right) == 0:
+                self.gradiometer.one_step(toward_right)
 
             self.gradiometer.save_pos()
             position_right = self.gradiometer.get_pos()
 
-            while GPIO.input(limit_switch_lower_right) == 0:
-                self.gradiometer.one_step(self.gradiometer.motor.mh.FORWARD)
+            while GPIO.input(left) == 0:
+                self.gradiometer.one_step(toward_left)
                 steps = (
                     steps + 1
                 )  # Is there a more intellectual way of counting the steps?
@@ -147,7 +155,8 @@ class CalibrationWindow(QMainWindow):
             data["CM_PER_STEP"] = distance / steps
         # Not sure if there's a nice way of not having to open it twice, doesn't look super aesthetically pleasing
         with open("./config.json", "w") as f:
-            # Note: some idiot decided that json.dumps is different from json.dump, be careful if you replicate this elsewhere
+            # Note: some idiot decided that json.dumps is different from json.dump, be careful if you replicate this
+            # elsewhere
             json.dump(data, f)
         cm_per_step = distance / steps
         print(
