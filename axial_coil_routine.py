@@ -16,4 +16,4 @@ atexit.register(g.labjack.close)
 g.zero()
 positions = np.linspace(0,80,17)
 for pos in positions:
-    g.timeRun(10,'axial-IOswitch-{}'.format(pos),pos,False)
+    g.time_run(10, 'axial-IOswitch-{}'.format(pos), pos, False)

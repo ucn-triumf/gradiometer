@@ -320,13 +320,13 @@ class RunWindow(QMainWindow):
         self.back_button.setEnabled(False)
         # self.backButton.setEnabled(False)
         # See startPosRun for what nest lambda does
-        gradCallback = lambda i: self.gradiometer.timeRun(
+        gradCallback = lambda i: self.gradiometer.time_run(
             sec,
             tag,
             save_folder_path,
             cm,
             graph=False,
-            scanFreq=scanFreq,
+            scan_freq=scanFreq,
             mes_callback=self.updateData,
         )
         self.gradThread = threading.Thread(

@@ -9,6 +9,7 @@ import csv
 import json
 from datetime import datetime
 import time as timer
+from DataFile import DataFile
 
 # Hardware includes
 import u6
@@ -159,38 +160,15 @@ class Gradiometer:
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
         """
-        filename = "{}/{}-{}.csv".format(
-            save_folder_path, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
-        )
-        csvfile = open(filename, "w")
-        fieldnames = [
-            "timestamp",
-            "time",
-            "position",
-            "x1",
-            "y1",
-            "z1",
-            "x2",
-            "y2",
-            "z2",
-            "dx1",
-            "dy1",
-            "dz1",
-            "dx2",
-            "dy2",
-            "dz2",
-        ]
-        writer = csv.DictWriter(csvfile, fieldnames)
-        writer.writeheader()
 
-        # cm per step
+        file = DataFile(save_folder_path, tag)
 
         self.goTo(start)
         print("starting run at {}cm".format(self.pos))
 
         dis = stop - self.pos
         steps = math.ceil(abs(dis / self.CM_PER_STEP)) + 1
-        startTime = datetime.now()
+        start_time = datetime.now()
         print("will take {} steps".format(steps))
         if dis > 0:
             direction = self.motor.mh.BACKWARD
@@ -198,8 +176,8 @@ class Gradiometer:
             direction = self.motor.mh.FORWARD
         try:
             for step in range(steps):
-                timeStamp = datetime.now()
-                time = (timeStamp - startTime).total_seconds()
+                time_stamp = datetime.now()
+                time = (time_stamp - start_time).total_seconds()
                 position = self.pos
                 print("START COLLECTING SAMPLES: {}".format(datetime.now()))
                 [x1, y1, z1], [dx1, dy1, dz1] = self.fg1.sample(samples_per_pos)
@@ -211,25 +189,25 @@ class Gradiometer:
                         self.pos, x1, y1, z1, x2, y2, z2
                     )
                 )
-                writer.writerow(
-                    {
-                        "timestamp": timeStamp,
-                        "time": time,
-                        "position": position,
-                        "x1": x1,
-                        "y1": y1,
-                        "z1": z1,
-                        "x2": x2,
-                        "y2": y2,
-                        "z2": z2,
-                        "dx1": dx1,
-                        "dy1": dy1,
-                        "dz1": dz1,
-                        "dx2": dx2,
-                        "dy2": dy2,
-                        "dz2": dz2,
-                    }
-                )
+                values = [
+                    time_stamp,
+                    time,
+                    position,
+                    x1,
+                    y1,
+                    z1,
+                    x2,
+                    y2,
+                    z2,
+                    dx1,
+                    dy1,
+                    dz1,
+                    dx2,
+                    dy2,
+                    dz2,
+                ]
+
+                file.write_row(values)
 
                 if mes_callback:
                     mes_callback(
@@ -242,21 +220,22 @@ class Gradiometer:
         except KeyboardInterrupt:
             print("run stopped at {}cm".format(self.pos))
         finally:
-            csvfile.close()
+            file.close()
+            file.upload_to_server()
             self.motor.turn_off_motors()
             self.save_pos()
 
         if graph:
-            self.plotter(filename, mode=1)
+            self.plotter(file.filename, mode=1)
 
-    def timeRun(
+    def time_run(
         self,
         sec,
         tag,
         save_folder_path,
         cm=None,
         graph=False,
-        scanFreq=1000,
+        scan_freq=1000,
         mes_callback=None,
     ):
         """Takes continuous measurements at a dingle position for an amount of
@@ -271,7 +250,7 @@ class Gradiometer:
                 fluxgate position Defaults to None.
             graph (bool, optional): determines whether a graph of the raw data
                 will be shown at the end of the run. Defaults to False.
-            scanFreq (int, optional): The number of times per second the Labjack
+            scan_freq (int, optional): The number of times per second the Labjack
                 reads the set of 6 AINs. 1000 will produce ~5 measurements per
                 second. Defaults to 1000. Max 8000.
             mes_callback (Callable[[List[float], List[float], List[Float], List[Float]], None]):
@@ -279,35 +258,14 @@ class Gradiometer:
                 First list passed is [x1, y1, z1], second is [x2, y2, z2], third is [dx1, dy1, dz1]
                 and third is [dx2, dy2, dz2]
         """
-        if cm == None:
+        if cm is None:
             cm = self.get_pos()
-        filename = "{}}/{}-{}.csv".format(
-            save_folder_path, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), tag
-        )
-        csvfile = open(filename, "w")
-        fieldnames = [
-            "timestamp",
-            "time",
-            "position",
-            "x1",
-            "y1",
-            "z1",
-            "x2",
-            "y2",
-            "z2",
-            "dx1",
-            "dy1",
-            "dz1",
-            "dx2",
-            "dy2",
-            "dz2",
-        ]
-        writer = csv.DictWriter(csvfile, fieldnames)
-        writer.writeheader()
+
+        file = DataFile(save_folder_path, tag)
 
         ainchannels = range(6)
         channeloptions = [0] * 6
-        scanfreq = scanFreq
+        scanfreq = scan_freq
         self.labjack.getCalibrationData()
         self.labjack.streamConfig(
             NumChannels=len(ainchannels),
@@ -328,13 +286,13 @@ class Gradiometer:
 
         try:
             self.labjack.streamStart()
-            startTime = datetime.now()
-            print("starting run at {}".format(startTime))
+            start_time = datetime.now()
+            print("starting run at {}".format(start_time))
 
             for r in self.labjack.streamData():
                 if r is not None:
                     # stop condition
-                    if (datetime.now() - startTime).seconds > sec:
+                    if (datetime.now() - start_time).seconds > sec:
                         break
                     if r["errors"] != 0:
                         print("Error: %s ; " % r["errors"], datetime.now())
@@ -346,8 +304,8 @@ class Gradiometer:
                         missed += r["missed"]
                         print("+++ Missed ", r["missed"])
 
-                    timeStamp = datetime.now()
-                    time = (timeStamp - startTime).total_seconds()
+                    time_stamp = datetime.now()
+                    time = (time_stamp - start_time).total_seconds()
                     x1 = r["AIN0"]
                     y1 = r["AIN1"]
                     z1 = r["AIN2"]
@@ -382,25 +340,24 @@ class Gradiometer:
                             time, x1val, y1val, z1val, x2val, y2val, z2val
                         )
                     )
-                    writer.writerow(
-                        {
-                            "timestamp": timeStamp,
-                            "time": time,
-                            "position": position,
-                            "x1": x1val,
-                            "y1": y1val,
-                            "z1": z1val,
-                            "x2": x2val,
-                            "y2": y2val,
-                            "z2": z2val,
-                            "dx1": dx1,
-                            "dy1": dy1,
-                            "dz1": dz1,
-                            "dx2": dx2,
-                            "dy2": dy2,
-                            "dz2": dz2,
-                        }
-                    )
+                    values = [
+                        time_stamp,
+                        time,
+                        position,
+                        x1val,
+                        y1val,
+                        z1val,
+                        x2val,
+                        y2val,
+                        z2val,
+                        dx1,
+                        dy1,
+                        dz1,
+                        dx2,
+                        dy2,
+                        dz2,
+                    ]
+                    file.write_row(values)
 
                     dataCount += 1
                     packetCount += r["numPackets"]
@@ -415,29 +372,32 @@ class Gradiometer:
             )  # Print what line the Exception occured on
             print(e)  # Print the exception
         finally:
-            stopTime = datetime.now()
+            stop_time = datetime.now()
             self.labjack.streamStop()
             # self.labjack.close()
-            print("ending run at {}".format(stopTime))
-            sampleTotal = packetCount * self.labjack.streamSamplesPerPacket
-            scanTotal = sampleTotal / len(ainchannels)
+            print("ending run at {}".format(stop_time))
+            sample_total = packetCount * self.labjack.streamSamplesPerPacket
+            scan_total = sample_total / len(ainchannels)
             print(
                 "{} requests with {} packets per request with {} samples per packet = {} samples total.".format(
                     dataCount,
                     (float(packetCount) / dataCount),
                     self.labjack.streamSamplesPerPacket,
-                    sampleTotal,
+                    sample_total,
                 )
             )
             print("{} samples were lost due to errors.".format(missed))
-            scanTotal -= missed
-            print("Adjusted total: {}".format(scanTotal))
-            csvfile.close()
+            scan_total -= missed
+            print("Adjusted total: {}".format(scan_total))
+            file.close()
+            file.upload_to_server()
             # self.motor.turnOffMotors()
             self.save_pos()
 
-        if graph == True:
-            self.plotter(filename, mode=2)
+        if graph:
+            self.plotter(file.filename, mode=2)
+
+    # Is the plotter never used?
 
     def plotter(self, csvfile, mode):
         """shows a plot of raw gradiometer data

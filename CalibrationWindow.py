@@ -1,9 +1,9 @@
 import json
 import threading
 
-# import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 # uncomment this and comment the line below when using RPi. This is for Windows.
-import testRPi.GPIO as GPIO
+# import testRPi.GPIO as GPIO
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QMainWindow,

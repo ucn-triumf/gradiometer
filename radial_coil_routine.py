@@ -17,4 +17,4 @@ g.zero()
 positions = np.linspace(14,64,51)
 for pos in positions:
     input('set to {}cm and continue'.format(pos))
-    g.timeRun(10,'radial-shield-{}'.format(pos),pos,False)
+    g.time_run(10, 'radial-shield-{}'.format(pos), pos, False)
