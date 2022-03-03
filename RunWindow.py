@@ -35,6 +35,7 @@ class RunWindow(QMainWindow):
     # Gradiometer object
     gradiometer = None
     # Run number currently on
+
     runNum = 0
 
     datamutex = threading.Lock()
