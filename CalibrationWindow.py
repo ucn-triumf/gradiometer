@@ -1,13 +1,5 @@
 import json
 import threading
-
-# set true or false depending on which system the code is running on
-RPi_computer = False
-
-if RPi_computer:
-    import RPi.GPIO as GPIO
-else:
-    import testRPi as GPIO
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -17,28 +9,30 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QPushButton,
 )
-
 from global_imports import (
     LOWER_MOTOR,
     UPPER_MOTOR,
-    remoteDev,
     init_grad,
     STANDARD_MOTOR_SPEED,
     return_to_prev_window,
 )
 
+# set true or false depending on which system the code is running on
+RPi_computer = False
+
+if RPi_computer:
+    import RPi.GPIO as GPIO
+else:
+    import testRPi as GPIO
+
 
 class CalibrationWindow(QMainWindow):
     """Main window for calibration task"""
 
-    # Variable for calibration distance, might want to change later
-    calDist = 80
-
     def __init__(self, parent=None):
         """Initializes calibration windows.
 
-        Args:
-            parent: parent element for QT. Defaults to None.
+        :param parent: parent element for QT. Defaults to None.
         """
         super().__init__(parent)
         self.setWindowTitle("Gradiometer Calibration")
@@ -97,6 +91,12 @@ class CalibrationWindow(QMainWindow):
 
             belt = self.motor_selection.currentData()
 
+            # for calibration the motorSpeed is set at 60.
+            self.gradiometer = init_grad(
+                motor_number=self.motor_selection.currentData(),
+                motor_speed=STANDARD_MOTOR_SPEED,
+            )
+            self.gradiometer.zero()
             # Get the correct right and left limit switches
             if belt == LOWER_MOTOR:
                 left = limit_switch_lower_left
@@ -108,14 +108,6 @@ class CalibrationWindow(QMainWindow):
                 right = limit_switch_upper_right
                 toward_right = self.gradiometer.motor.mh.BACKWARD
                 toward_left = self.gradiometer.motor.mh.FORWARD
-
-            if not remoteDev:
-                # for calibration the motorSpeed is set at 60.
-                self.gradiometer = init_grad(
-                    motor_number=self.motor_selection.currentData(),
-                    motor_speed=STANDARD_MOTOR_SPEED,
-                )
-                self.gradiometer.zero()
 
             # This version of the function is for the lower belt. Goes from to the left switch, then to the right.
             # Stops at the right switch
@@ -134,7 +126,7 @@ class CalibrationWindow(QMainWindow):
             while GPIO.input(left) == 0:
                 self.gradiometer.one_step(toward_left)
                 steps = (
-                    steps + 1
+                        steps + 1
                 )  # Is there a more intellectual way of counting the steps?
 
             self.gradiometer.save_pos()
@@ -148,6 +140,13 @@ class CalibrationWindow(QMainWindow):
 
     # TODO: which is more accurate: fluxgate position measurements or physical distance between switches measurement?
     def calibrate_grad(self, position_right, position_left, steps):
+        """
+        Calibrates the gradiometer by calculating the actual distance in cm per step of the motor
+
+        :param position_right: fluxgate position taken at right limit switch
+        :param position_left: fluxgate position taken at left limit switch
+        :param steps: number of steps taken by the motor
+        """
         actual_distance = 102  # cm
         distance = abs(position_right - position_left)
         with open("./config.json") as f:

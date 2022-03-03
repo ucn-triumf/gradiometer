@@ -1,6 +1,5 @@
 import threading
 import time
-
 import numpy as np
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
@@ -19,7 +18,6 @@ from PyQt5.QtWidgets import (
     QCheckBox,
 )
 import pyqtgraph as pg
-
 from global_imports import (
     STANDARD_MOTOR_SPEED,
     init_grad,
@@ -56,19 +54,13 @@ class RunWindow(QMainWindow):
         pos = 1
         time = 2
 
-    def select_folder(self, entry_field):
-        dialog = QFileDialog()
-        folder_path = dialog.getExistingDirectory(None, "Select Folder")
-        entry_field.setText(folder_path)
-
     def __init__(self, mode, parent=None):
         """Initializes posRun class
 
-        Args:
-            mode (int): 1 for Gradiometer.posRun
-                        2 for Gradiometer.timeRun
-                    Use runModes class to ensure consistency
-            parent: Parent element to be passed to super. Defaults to None.
+        :param mode: 1 for Gradiometer.posRun
+                     2 for Gradiometer.timeRun
+                     Use runModes class to ensure consistency
+        :param parent: Parent element to be passed to super. Defaults to None.
         """
         super().__init__(parent)
         self.mode = mode
@@ -105,7 +97,7 @@ class RunWindow(QMainWindow):
         self.settings_layout.addRow(self.select_folder_button, self.save_folder_path)
 
         self.select_folder_button.clicked.connect(
-            lambda: self.select_folder(self.save_folder_path)
+            lambda: self.select_directory(self.save_folder_path)
         )
 
         # Motor (belt) selection
@@ -176,14 +168,14 @@ class RunWindow(QMainWindow):
         # Different functionality for start button depending on mode
         if self.mode == self.RunModes.pos:
             self.operateButton.clicked.connect(
-                lambda: self.startPosRun(
+                lambda: self.start_pos_run(
                     start=self.start_entry.value(),
                     stop=self.stop_entry.value(),
                     tag=self.tagEntry.text(),
                     save_folder_path=self.save_folder_path.text(),
-                    motorNumber=self.motor_selection.currentData(),
-                    motorSpeed=self.motor_speed.value(),
-                    samplesPerPos=self.samples_per_pos_entry.value(),
+                    motor_number=self.motor_selection.currentData(),
+                    motor_speed=self.motor_speed.value(),
+                    samples_per_pos=self.samples_per_pos_entry.value(),
                     repeats=self.repeats_entry.value(),
                 )
             )
@@ -193,9 +185,9 @@ class RunWindow(QMainWindow):
                     sec=self.secEntry.value(),
                     tag=self.tagEntry.text(),
                     save_folder_path=self.save_folder_path.text(),
-                    motorNumber=self.motor_selection.currentData(),
-                    motorSpeed=STANDARD_MOTOR_SPEED,
-                    scanFreq=self.scanFreqEntry.value(),
+                    motor_number=self.motor_selection.currentData(),
+                    motor_speed=STANDARD_MOTOR_SPEED,
+                    scan_freq=self.scanFreqEntry.value(),
                     cm=None
                     if not self.changePosEntry.isChecked()
                     else self.cmEntry.value(),
@@ -267,71 +259,89 @@ class RunWindow(QMainWindow):
 
         self.timer = QtCore.QTimer()
         self.timer.setInterval(2000)
-        self.timer.timeout.connect(self.updateGraph)
+        self.timer.timeout.connect(self.update_graph)
         self.timer.start()
 
-    def startPosRun(
-            self,
-            start,
-            stop,
-            tag,
-            save_folder_path,
-            motorNumber,
-            motorSpeed,
-            samplesPerPos,
-            repeats,
+    def select_directory(self, entry_field):
+        """
+        Opens a file dialog to select the save location.
+
+        :param entry_field: QLineEdit field where the user could also manually enter the directory
+        """
+        dialog = QFileDialog()
+        folder_path = dialog.getExistingDirectory(None, "Select Folder")
+        entry_field.setText(folder_path)
+
+    def start_pos_run(
+        self,
+        start,
+        stop,
+        tag,
+        save_folder_path,
+        motor_number,
+        motor_speed,
+        samples_per_pos,
+        repeats,
     ):
-        """Starts position run. Arguments are same as in Gradiometer.posRun"""
+        """Starts position run. Arguments are same as in Gradiometer.pos_run"""
 
         # Disable operation button so two runs don't get started at once
         self.operateButton.setEnabled(False)
         self.back_button.setEnabled(False)
         # self.backButton.setEnabled(False) Nest callback is kind of confusing, there's probably an easier way to do
-        # things Basically gradCallback is called every time a measurement is made, while a lambda that uses this
+        # things Basically grad_callback is called every time a measurement is made, while a lambda that uses this
         # callback is given to the thread to run
 
-        gradCallback = lambda i: self.gradiometer.pos_run(
+        grad_callback = lambda i: self.gradiometer.pos_run(
             start if i % 2 == 0 else stop,
             stop if i % 2 == 0 else start,
             tag,
             save_folder_path,
             graph=False,
-            samples_per_pos=samplesPerPos,
-            mes_callback=self.updateData,
+            samples_per_pos=samples_per_pos,
+            mes_callback=self.update_data,
         )
-        self.gradThread = threading.Thread(
-            target=lambda: self.repeatRun(
-                motorNumber, motorSpeed, repeats, gradCallback
+        self.grad_thread = threading.Thread(
+            target=lambda: self.repeat_run(
+                motor_number, motor_speed, repeats, grad_callback
             )
         )
         for i in range(6):
-            # Right now I'm just settting the axis in a hardcoded way to get them to line up as per Beatrice's request, but if dynamic spacing is required this should work:
-            # self.axes[i].set_xlim([min(self.axes[i].get_xlim()[0], min(
-            #     start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
+            # Right now I'm just settting the axis in a hardcoded way to get them to line up as per Beatrice's
+            # request, but if dynamic spacing is required this should work: self.axes[i].set_xlim([min(self.axes[
+            # i].get_xlim()[0], min( start, stop))-3, max(self.axes[i].get_xlim()[1], max(start, stop))+1])
             # self.axes[i+3].set_xlim([20, 60])
             self.plotRefs[i].setXRange(self.MINGRAPH, self.MAXGRAPH)
-        self.gradThread.start()
+        self.grad_thread.start()
 
     def start_time_run(
-            self, sec, tag, save_folder_path, motorNumber, motorSpeed, scanFreq, cm, repeats
+        self,
+        sec,
+        tag,
+        save_folder_path,
+        motor_number,
+        motor_speed,
+        scan_freq,
+        cm,
+        repeats,
     ):
-        """Starts time run. Arguments are same as in Gradiometer.timeRun"""
+        """Starts time run. Arguments are same as in Gradiometer.time_run"""
         self.operateButton.setEnabled(False)
         self.back_button.setEnabled(False)
         # self.backButton.setEnabled(False)
         # See startPosRun for what nest lambda does
-        gradCallback = lambda i: self.gradiometer.time_run(
+        grad_callback = lambda i: self.gradiometer.time_run(
             sec,
             tag,
             save_folder_path,
             cm,
             graph=False,
-            scan_freq=scanFreq,
-            mes_callback=self.updateData,
+            scan_freq=scan_freq,
+            mes_callback=self.update_data,
         )
-        self.gradThread = threading.Thread(
-            target=lambda: self.repeatRun(
-                motorNumber, motorSpeed, repeats, gradCallback
+        self.grad_thread = threading.Thread(
+            target=lambda: self.repeat_run(
+                motor_number, motor_speed, repeats, grad_callback
             )
         )
         # Initializes axes to show maximum range any data series currently uses to avoid cutting any off
@@ -339,13 +349,18 @@ class RunWindow(QMainWindow):
             self.plotRefs[i].setXRange(
                 0, max(self.plotRefs[i].viewRange()[0][1], sec) + 1
             )
-        self.gradThread.start()
+        self.grad_thread.start()
 
-    def setup_run(self, motorNumber, motorSpeed):
-        """Sets up shared run settings for pos and time runs"""
+    def setup_run(self, motor_number, motor_speed):
+        """
+        Sets up shared run settings for pos and time runs
+
+        :param motor_number: 1 for lower motor, 2 for upper motor
+        :param motor_speed: speed of the motor (RPM)
+        """
         # Initialize shared gradiometer if not already done
         if not self.gradiometer:
-            self.gradiometer = init_grad(motorNumber, motorSpeed)
+            self.gradiometer = init_grad(motor_number, motor_speed)
 
         for i in range(3):
             self.xdata[i].append(np.array([]))
@@ -410,58 +425,62 @@ class RunWindow(QMainWindow):
 
         self.runNum += 1
 
-    def repeatRun(self, motorNumber, motorSpeed, repeats, runCallback):
-        """Repeats a run of the given callback
+    def repeat_run(self, motor_number, motor_speed, repeats, run_callback):
+        """
+        Repeats a run of the given callback
 
-        Args:
-            repeats (int): number of repeats
-            runCallback (Function): Callback that takes which iteration it's on
+        :param run_callback: Callback that takes which iteration it's on
+        :param repeats: number of repeats
+        :param motor_speed: speed of the motor (RPM)
+        :param motor_number: 1 for lower motor, 2 for upper motor
         """
         for i in range(repeats):
-            self.setup_run(motorNumber, motorSpeed)
-            runCallback(i)
+            self.setup_run(motor_number, motor_speed)
+            run_callback(i)
             # Not strictly necessary, just put it in to physically be able to differentiate runs
             time.sleep(1)
 
-    def updateData(self, pos1, pos2, std1, std2):
-        """Updates data, to be called from gradThread Args (All in (x, y, ) format):
-        pos1 (List[Float]): List of magnetic fields at position 1
-        pos2 (List[Float]): List of magnetic fields at position 2
-        std1 (List[Float]): List of standard deviations for pos 1
-        std2 (List[Float]): List of standard deviations for pos 1
+    def update_data(self, pos1, pos2, std1, std2):
+        """
+        Updates data, to be called from gradThread Args (All in (x, y, ) format):
+
+        :param pos1: List of magnetic fields at position 1
+        :param pos2: List of magnetic fields at position 2
+        :param std1: List of standard deviations for pos 1
+        :param std2: List of standard deviations for pos 1
         """
         self.datamutex.acquire()
         try:
             # Conversion factor given in user manual
-            uTPerVolt = 10
+            u_t_per_volt = 10
             for i in range(3):
                 # y and error are the same between modes
                 self.ydata_pos1[i][-1] = np.append(
-                    self.ydata_pos1[i][-1], uTPerVolt * pos1[i]
+                    self.ydata_pos1[i][-1], u_t_per_volt * pos1[i]
                 )
-                self.error[i][-1] = np.append(self.error[i][-1], uTPerVolt * std1[i])
+                self.error[i][-1] = np.append(self.error[i][-1], u_t_per_volt * std1[i])
                 if self.mode == self.RunModes.pos:
                     self.xdata[i][-1] = np.append(
-                        self.xdata[i][-1], self.gradiometer.pos + self.getOffset(i)
+                        self.xdata[i][-1], self.gradiometer.pos + self.get_offset(i)
                     )
                     # Since pos2 has rotated axes a shifting must be done
                     index = 2 if i == 0 else (0 if i == 2 else 1)
                     self.ydata_pos2[i][-1] = np.append(
-                        self.ydata_pos2[i][-1], -uTPerVolt * pos2[index]
+                        self.ydata_pos2[i][-1], -u_t_per_volt * pos2[index]
                     )
                     self.errorPos2[i][-1] = np.append(
-                        self.errorPos2[i][-1], uTPerVolt * std2[index]
+                        self.errorPos2[i][-1], u_t_per_volt * std2[index]
                     )
                 elif self.mode == self.RunModes.time:
                     if len(self.xdata[i][-1]) == 0:
-                        self.startTime = time.time()
+                        self.start_time = time.time()
                     self.xdata[i][-1] = np.append(
-                        self.xdata[i][-1], time.time() - self.startTime
+                        self.xdata[i][-1], time.time() - self.start_time
                     )
         finally:
             self.datamutex.release()
 
-    def updateGraph(self):
+    def update_graph(self):
         """Updates graphs periodically"""
         self.datamutex.acquire()
         downsample = 10 if self.mode == self.RunModes.pos else 1
@@ -484,14 +503,14 @@ class RunWindow(QMainWindow):
                             height=self.error[i][-1],
                             downsample=downsample,
                         )
-                        # if self.mode == self.RunModes.pos:
-                        #     self.plotDataRefsPos2[i][-1].setData(self.xdata[i][-1], self.ydataPos2[i][-1])
-                        #     self.errorItemsPos2[i][-1].setData(x=self.xdata[i][-1], y=self.ydataPos2[i][-1], height=self.errorPos2[i][-1])
+                        # if self.mode == self.RunModes.pos: self.plotDataRefsPos2[i][-1].setData(self.xdata[i][-1],
+                        # self.ydataPos2[i][-1]) self.errorItemsPos2[i][-1].setData(x=self.xdata[i][-1],
+                        # y=self.ydataPos2[i][-1], height=self.errorPos2[i][-1])
                     else:
                         data_restricted = [
                             i
                             for i, x in enumerate(self.xdata[i % 3][-1])
-                            if x > 30 and x < 50
+                            if 30 < x < 50
                         ]
                         lower = min(data_restricted)
                         upper = max(data_restricted)
@@ -509,7 +528,7 @@ class RunWindow(QMainWindow):
                 except (IndexError, ValueError) as e:
                     pass
             try:
-                if not self.gradThread.is_alive():
+                if not self.grad_thread.is_alive():
                     self.operateButton.setEnabled(True)
                     self.back_button.setEnabled(True)
             except:
@@ -517,14 +536,12 @@ class RunWindow(QMainWindow):
         finally:
             self.datamutex.release()
 
-    def getOffset(self, i):
-        """Get's offset of magnetometer inherent in instrument
+    def get_offset(self, i):
+        """
+        Gets offset of magnetometer inherent in instrument
 
-        Args:
-            i (int): axis, 1=x, 2=y, 3=z
-
-        Returns:
-            int: offset of the given axis
+        :param i axis, 1=x, 2=y, 3=z
+        :returns int offset of the given axis
         """
         if i == 0:
             return -3

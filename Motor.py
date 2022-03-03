@@ -1,11 +1,16 @@
-# MOTOR
-
 from Adafruit_MotorHAT import Adafruit_MotorHAT
 
+
 class Motor:
-    def __init__(
-        self, motor_number, motor_speed
-    ):  # motor number is 1 for the lower motor and 2 for the upper motor
+    """
+    Represents a stepper motor.
+
+    :param motor_number: 1 for lower motor, 2 for upper motor
+    :param motor_speed: speed of the motor (RPM)
+    """
+
+    def __init__(self, motor_number, motor_speed):
+        """Constructor method"""
         self.mh = Adafruit_MotorHAT()
         self.myStepper = self.mh.getStepper(200, motor_number)
         self.myStepper.setSpeed(motor_speed)

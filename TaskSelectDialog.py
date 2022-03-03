@@ -11,7 +11,11 @@ from RunWindow import RunWindow
 
 
 class TaskSelectDialog(QDialog):
-    """Initial Dialog class for GUI"""
+    """
+    Initial Dialog class for GUI
+
+    :param parent: parent element. Defaults to None.
+    """
 
     class TaskTypes:
         """Enum for types of tasks to open"""
@@ -21,11 +25,7 @@ class TaskSelectDialog(QDialog):
         time_run = "Time Run"
 
     def __init__(self, parent=None):
-        """Initializes new opening dialog
-
-        Args:
-            parent: parent element. Defaults to None.
-        """
+        """Constructor method"""
         super().__init__(parent)
         self.setWindowTitle("Gradiometer GUI")
         self.layout = QVBoxLayout()
@@ -54,17 +54,15 @@ class TaskSelectDialog(QDialog):
     def start_main(self, task_type):
         """Starts the main application of the appropriate type
 
-        Args:
-            task_type (str): The type of task to start, given by TaskTypes enum
+        :param task_type: The type of task to start, given by TaskTypes enum
         """
-        global mainWindow
 
         if task_type == self.TaskTypes.cal:
-            mainWindow = CalibrationWindow()
-            mainWindow.show()
+            main_window = CalibrationWindow()
+            main_window.show()
         elif task_type == self.TaskTypes.pos_run:
-            mainWindow = RunWindow(RunWindow.RunModes.pos)
-            mainWindow.showMaximized()
+            main_window = RunWindow(RunWindow.RunModes.pos)
+            main_window.showMaximized()
         elif task_type == self.TaskTypes.time_run:
-            mainWindow = RunWindow(RunWindow.RunModes.time)
-            mainWindow.showMaximized()
+            main_window = RunWindow(RunWindow.RunModes.time)
+            main_window.showMaximized()

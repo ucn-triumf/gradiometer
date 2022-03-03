@@ -17,14 +17,20 @@ from Fluxgate import Fluxgate
 
 
 class Gradiometer:
+
+    """
+    Represents the gradiometer.
+
+    :param motor_number: 1 for lower motor, 2 for upper motor
+    :param motor_speed: Speed of the motor (RPM)
+    """
+
     # This is a good baseline, and it's being kept in case file saving fails, but this value is reloaded from
     # config.json This means editing this number won't do anything
     CM_PER_STEP = 0.082268
-    LOWER_MOTOR = 1
-    UPPER_MOTOR = 2
 
     def __init__(self, motor_number, motor_speed):
-
+        """Constructor method"""
         self.motor = Motor(motor_number, motor_speed)  # defaults to lower motor
         self.pos = self.load_pos()
         self.CM_PER_STEP = self.load_cal()
@@ -35,11 +41,8 @@ class Gradiometer:
     def go_to(self, cm):
         """moves the fluxgate to the position cm, rounded to the nearest step
 
-        Args:
-            cm (float): position in cm you want the fluxgate to move to
-
-        Returns:
-            int: number of steps to take
+        :param cm: position in cm you want the fluxgate to move to
+        :returns: number of steps to take
         """
         dis = cm - self.pos
         steps = round(abs(dis / self.CM_PER_STEP))
@@ -62,11 +65,11 @@ class Gradiometer:
         return steps
 
     def one_step(self, direction):
-        """makes the stepper motor take one step in the specified direction
+        """
+        Makes the stepper motor take one step in the specified direction
 
-        Args:
-            direction (int): 1 for forwards  (use self.motor.mh.FORWARD)
-                             2 for backwards (use self.motor.mh.BACKWARD)
+        :param direction: 1 for forwards  (use self.motor.mh.FORWARD)
+                          2 for backwards (use self.motor.mh.BACKWARD)
         """
 
         if direction == self.motor.mh.BACKWARD:
@@ -82,10 +85,10 @@ class Gradiometer:
             # maybe this should throw an error instead?
 
     def load_pos(self):
-        """reads fluxgate position from the binary file 'POSITION.pickle'
+        """
+        Reads fluxgate position from the binary file 'POSITION.pickle'
 
-        Returns:
-            float: previously saved position of fluxgate
+        :returns: previously saved position of fluxgate
         """
         pos_file = open("POSITION.pickle", "rb")
         try:
@@ -98,15 +101,14 @@ class Gradiometer:
         return pos
 
     def save_pos(self):
-        """saves the current fluxgate position self.pos to the binary file
-        'POSITION.pickle'
-        """
+        """Saves the current fluxgate position self.pos to the binary file 'POSITION.pickle'"""
         pos_file = open("POSITION.pickle", "wb")
         pickle.dump(self.pos, pos_file)
         pos_file.close()
         print("saved pos")
 
     def load_cal(self):
+        """Loads the value of centimeters per step of the stepper motor from config.json"""
         with open("./config.json") as f:
             data = json.load(f)
 
@@ -228,7 +230,7 @@ class Gradiometer:
             self.save_pos()
 
         if graph:
-            self.plotter(file.filename, mode=1)
+            self.plotter(file.local_path, mode=1)
 
     def time_run(
         self,
@@ -399,7 +401,7 @@ class Gradiometer:
             self.save_pos()
 
         if graph:
-            self.plotter(file.filename, mode=2)
+            self.plotter(file.local_path, mode=2)
 
     # Is the plotter never used?
 
